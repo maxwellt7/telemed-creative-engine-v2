@@ -1,0 +1,35 @@
+{
+  "name": "@telemed/worker",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@telemed/shared": "workspace:*",
+    "@anthropic-ai/sdk": "^0.36.0",
+    "@fal-ai/client": "^1.0.0",
+    "@mendable/firecrawl-js": "^1.0.0",
+    "@trpc/server": "^11.0.0",
+    "bullmq": "^5.0.0",
+    "cors": "^2.8.5",
+    "drizzle-orm": "^0.30.0",
+    "exa-js": "^1.0.0",
+    "express": "^5.0.0",
+    "ioredis": "^5.3.0",
+    "postgres": "^3.4.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "drizzle-kit": "^0.21.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  }
+}
