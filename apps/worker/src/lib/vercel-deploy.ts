@@ -17,7 +17,10 @@ export async function deployAdvertorial(htmlContent: string, slug: string): Prom
       teamId: process.env.VERCEL_TEAM_ID,
     }),
   })
-  if (!res.ok) throw new Error(`Vercel deploy failed: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Vercel deploy failed: ${res.status} ${body}`)
+  }
   const data = await res.json() as { url: string }
   return `https://${data.url}`
 }
