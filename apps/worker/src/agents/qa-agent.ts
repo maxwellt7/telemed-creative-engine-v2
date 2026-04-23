@@ -1,6 +1,7 @@
 import { db, personaReviews, pipelineRuns, copyAssets } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and } from 'drizzle-orm'
+import { anthropic, callClaude } from '../lib/anthropic.js'
 
 export interface AssetScoreSummary {
   assetId: string
@@ -62,7 +63,6 @@ export async function runRevision(runId: string, revisionPass: number): Promise<
   for (const summary of failing) {
     if (summary.assetType === 'advertorial') {
       await log(runId, 'REVISION', `Revising advertorial (avg: ${summary.avgScore.toFixed(1)}/10)`)
-      const { anthropic, callClaude } = await import('../lib/anthropic.js')
       const [asset] = await db.select().from(copyAssets)
         .where(and(eq(copyAssets.id, summary.assetId), eq(copyAssets.runId, runId)))
       if (!asset) continue

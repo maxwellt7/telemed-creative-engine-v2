@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { shouldRevise, computeScoreSummaries, runQAFinal } from './qa-agent'
+import { shouldRevise, computeScoreSummaries, runRevision, runQAFinal } from './qa-agent.js'
 
 vi.mock('../db/index', () => ({
   db: {
@@ -34,5 +34,32 @@ describe('qa-agent', () => {
   it('exports computeScoreSummaries and runQAFinal', () => {
     expect(typeof computeScoreSummaries).toBe('function')
     expect(typeof runQAFinal).toBe('function')
+  })
+
+  it('runRevision returns false when all assets pass (avg >= 7.0)', async () => {
+    const { db } = await import('../db/index.js')
+    vi.mocked(db.select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([
+          { assetId: 'copy-1', assetType: 'advertorial', score: 8.0, objection: 'None', suggestedEdit: 'None' },
+          { assetId: 'copy-1', assetType: 'advertorial', score: 9.0, objection: 'None', suggestedEdit: 'None' },
+        ]),
+      }),
+    } as any)
+    const result = await runRevision('run-1', 0)
+    expect(result).toBe(false)
+  })
+
+  it('runRevision returns false when revisionPass >= 3', async () => {
+    const { db } = await import('../db/index.js')
+    vi.mocked(db.select).mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([
+          { assetId: 'copy-1', assetType: 'advertorial', score: 3.0, objection: 'Bad', suggestedEdit: 'Fix it' },
+        ]),
+      }),
+    } as any)
+    const result = await runRevision('run-1', 3)
+    expect(result).toBe(false)
   })
 })
