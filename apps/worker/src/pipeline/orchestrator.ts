@@ -1,5 +1,6 @@
 import { db, pipelineRuns, products } from '../db/index.js'
 import { eq } from 'drizzle-orm'
+import type { PipelineStage } from '@telemed/shared'
 import { log } from './logger.js'
 import { runOfferProfiler } from '../agents/offer-profiler.js'
 import { runAvatarAgent } from '../agents/avatar-agent.js'
@@ -25,7 +26,7 @@ export async function runPipeline(runId: string) {
   await db.update(pipelineRuns).set({ status: 'running', currentStage: 'INTAKE' }).where(eq(pipelineRuns.id, runId))
 
   const p = { name: product.name, url: product.url, brief: product.brief, targetMarket: product.targetMarket }
-  const errorLogStage = run.currentStage
+  const errorLogStage = run.currentStage as PipelineStage
 
   try {
     await log(runId, 'INTAKE', `Pipeline started for ${product.name}`)
