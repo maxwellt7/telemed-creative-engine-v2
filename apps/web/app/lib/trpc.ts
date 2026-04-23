@@ -6,7 +6,7 @@ export const trpc = createTRPCClient<AppRouter>({
     httpBatchLink({
       url: `${process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'}/trpc`,
       headers() {
-        return process.env.API_SECRET ? { 'x-api-secret': process.env.API_SECRET } : {}
+        return process.env.NEXT_PUBLIC_API_SECRET ? { 'x-api-secret': process.env.NEXT_PUBLIC_API_SECRET } : {}
       },
     }),
   ],
