@@ -12,7 +12,7 @@ export async function generateStaticAd(
     '9:16': { width: 768, height: 1365 },
   }
   const { width, height } = sizes[format]
-  const result = await fal.subscribe('fal-ai/flux-pro/v1.1', {
+  const result = await fal.subscribe('fal-ai/flux/schnell', {
     input: { prompt, image_size: { width, height }, num_images: 1, output_format: 'jpeg' },
     logs: false,
   }) as unknown as { images: { url: string }[] }

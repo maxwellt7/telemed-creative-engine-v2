@@ -35,15 +35,18 @@ export async function runVideoDraft(runId: string) {
   const voScript = extractVO(primary.script30s)
   const videoPrompt = scriptToVideoPrompt(primary.script30s)
 
-  const audioUrl = await generateVoiceover(voScript)
-  const draftUrl = await generateVideoDraft(videoPrompt, audioUrl)
-
-  await db.insert(creativeAssets).values({
-    runId, type: 'video_draft', storageUrl: draftUrl, status: 'complete',
-  })
+  try {
+    const audioUrl = await generateVoiceover(voScript)
+    const draftUrl = await generateVideoDraft(videoPrompt, audioUrl)
+    await db.insert(creativeAssets).values({
+      runId, type: 'video_draft', storageUrl: draftUrl, status: 'complete',
+    })
+    await log(runId, 'VIDEO_DRAFT', `Draft video: ${draftUrl}`)
+  } catch (err) {
+    await log(runId, 'VIDEO_DRAFT', `Video draft skipped (${(err as Error).message})`, 'warn')
+  }
 
   await db.update(pipelineRuns).set({ currentStage: 'VIDEO_FINAL' }).where(eq(pipelineRuns.id, runId))
-  await log(runId, 'VIDEO_DRAFT', `Draft video: ${draftUrl}`)
 }
 
 export async function runVideoFinal(runId: string) {
@@ -58,12 +61,16 @@ export async function runVideoFinal(runId: string) {
   if (!primary) throw new Error('No primary script')
 
   const videoPrompt = scriptToVideoPrompt(primary.script30s) + ' High production value, master quality.'
-  const finalUrl = await generateVideoFinal(videoPrompt)
 
-  await db.insert(creativeAssets).values({
-    runId, type: 'video_final', storageUrl: finalUrl, status: 'complete',
-  })
+  try {
+    const finalUrl = await generateVideoFinal(videoPrompt)
+    await db.insert(creativeAssets).values({
+      runId, type: 'video_final', storageUrl: finalUrl, status: 'complete',
+    })
+    await log(runId, 'VIDEO_FINAL', `Final video: ${finalUrl}`)
+  } catch (err) {
+    await log(runId, 'VIDEO_FINAL', `Video final skipped (${(err as Error).message})`, 'warn')
+  }
 
   await db.update(pipelineRuns).set({ currentStage: 'PERSONA_TEST' }).where(eq(pipelineRuns.id, runId))
-  await log(runId, 'VIDEO_FINAL', `Final video: ${finalUrl}`)
 }
