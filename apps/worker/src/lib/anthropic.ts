@@ -29,7 +29,8 @@ export async function callClaude(client: Anthropic, opts: CallClaudeOptions): Pr
   }
 
   if (opts.thinkingBudget) {
-    (params as any).thinking = { type: 'adaptive', budget_tokens: opts.thinkingBudget }
+    (params as any).thinking = { type: 'adaptive' }
+    ;(params as any).output_config = { effort: opts.thinkingBudget >= 4000 ? 'high' : 'medium' }
   }
 
   const response = await client.messages.create(params)
