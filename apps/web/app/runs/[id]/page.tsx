@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { trpc } from '../../lib/trpc'
 
 const STAGES = ['INTAKE','OFFER_PROFILE','AVATAR_BUILD','COMPETITOR_DISCOVER','ADVERTORIAL_DISCOVER','ADVERTORIAL_FETCH','REVERSE_ENGINEER','REVERSE_BRIEF','COPY_CONCEPTS','ADVERTORIAL_COPY','CREATIVE_DIRECTION','AD_SCRIPTS','FUNNEL_BUILD','STATIC_ADS','VIDEO_DRAFT','VIDEO_FINAL','PERSONA_TEST','FEEDBACK_AGGREGATE','REVISION','QA_FINAL','DELIVERY']
@@ -7,7 +7,8 @@ const STAGES = ['INTAKE','OFFER_PROFILE','AVATAR_BUILD','COMPETITOR_DISCOVER','A
 type Run = Awaited<ReturnType<typeof trpc.runs.get.query>>
 type Log = Awaited<ReturnType<typeof trpc.runs.logs.query>>[number]
 
-export default function RunDetailPage({ params }: { params: { id: string } }) {
+export default function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const [run, setRun] = useState<Run | null>(null)
   const [logs, setLogs] = useState<Log[]>([])
   const [loading, setLoading] = useState(true)
@@ -16,8 +17,8 @@ export default function RunDetailPage({ params }: { params: { id: string } }) {
     async function refresh() {
       try {
         const [r, l] = await Promise.all([
-          trpc.runs.get.query({ runId: params.id }),
-          trpc.runs.logs.query({ runId: params.id }),
+          trpc.runs.get.query({ runId: id }),
+          trpc.runs.logs.query({ runId: id }),
         ])
         setRun(r)
         setLogs(l)
@@ -27,7 +28,7 @@ export default function RunDetailPage({ params }: { params: { id: string } }) {
     refresh()
     const interval = setInterval(refresh, 3000)
     return () => clearInterval(interval)
-  }, [params.id])
+  }, [id])
 
   if (loading) return <div style={{ padding: '2rem', color: '#6b7280' }}>Loading…</div>
   if (!run) return <div style={{ padding: '2rem', color: '#dc2626' }}>Run not found</div>
