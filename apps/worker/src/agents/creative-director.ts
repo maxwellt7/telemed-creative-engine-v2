@@ -1,4 +1,4 @@
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
 import { db, copyAssets, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and } from 'drizzle-orm'
@@ -51,7 +51,7 @@ export async function runCreativeDirection(runId: string) {
     thinkingBudget: 2000,
   })
 
-  const parsed = JSON.parse(concepts)
+  const parsed = parseClaudeJson(concepts)
   await db.insert(copyAssets).values({
     runId, type: 'concept_brief', content: JSON.stringify(parsed), version: 1, status: 'draft',
   })
@@ -78,7 +78,7 @@ export async function runAdScripts(runId: string) {
     maxTokens: 8192,
   })
 
-  const parsed = JSON.parse(scripts)
+  const parsed = parseClaudeJson(scripts)
   await db.insert(copyAssets).values({
     runId, type: 'ad_script', content: JSON.stringify(parsed), version: 1, status: 'draft',
   })

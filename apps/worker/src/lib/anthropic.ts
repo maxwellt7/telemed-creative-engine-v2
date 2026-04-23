@@ -14,6 +14,11 @@ export interface CallClaudeOptions {
   thinkingBudget?: number
 }
 
+export function parseClaudeJson<T = unknown>(text: string): T {
+  const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+  return JSON.parse(stripped) as T
+}
+
 export async function callClaude(client: Anthropic, opts: CallClaudeOptions): Promise<string> {
   const params: Anthropic.MessageCreateParamsNonStreaming = {
     model: opts.model,

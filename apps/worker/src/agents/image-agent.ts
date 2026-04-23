@@ -1,3 +1,4 @@
+import { parseClaudeJson } from '../lib/anthropic.js'
 import { generateStaticAd } from '../lib/fal.js'
 import { db, copyAssets, creativeAssets, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
@@ -13,7 +14,7 @@ export async function runImageAgent(runId: string) {
 
   if (!scriptAsset) throw new Error(`No ad scripts for run ${runId}`)
 
-  const scripts = JSON.parse(scriptAsset.content) as Array<{ imagePrompt?: string; concept: string }>
+  const scripts = parseClaudeJson(scriptAsset.content) as Array<{ imagePrompt?: string; concept: string }>
   const primary = scripts[0]
 
   if (!primary?.imagePrompt) {

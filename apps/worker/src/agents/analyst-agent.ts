@@ -1,5 +1,5 @@
 import { scrapeUrl } from '../lib/firecrawl.js'
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
 import { db, researchArtifacts, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and } from 'drizzle-orm'
@@ -66,7 +66,7 @@ export async function runReverseEngineer(runId: string) {
   })
 
   await db.update(researchArtifacts)
-    .set({ analysisJson: JSON.parse(analysis) })
+    .set({ analysisJson: parseClaudeJson(analysis) })
     .where(eq(researchArtifacts.id, top.id))
 
   await db.update(pipelineRuns).set({ currentStage: 'REVERSE_BRIEF' }).where(eq(pipelineRuns.id, runId))

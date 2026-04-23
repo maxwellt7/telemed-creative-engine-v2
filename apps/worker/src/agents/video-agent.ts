@@ -1,3 +1,4 @@
+import { parseClaudeJson } from '../lib/anthropic.js'
 import { generateVideoDraft, generateVideoFinal, generateVoiceover } from '../lib/fal.js'
 import { db, copyAssets, creativeAssets, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
@@ -27,7 +28,7 @@ export async function runVideoDraft(runId: string) {
     .where(and(eq(copyAssets.runId, runId), eq(copyAssets.type, 'ad_script')))
   if (!scriptAsset) throw new Error(`No ad scripts for run ${runId}`)
 
-  const scripts = JSON.parse(scriptAsset.content) as Array<{ script30s: string; concept: string }>
+  const scripts = parseClaudeJson(scriptAsset.content) as Array<{ script30s: string; concept: string }>
   const primary = scripts[0]
   if (!primary) throw new Error('No primary script')
 
@@ -52,7 +53,7 @@ export async function runVideoFinal(runId: string) {
     .where(and(eq(copyAssets.runId, runId), eq(copyAssets.type, 'ad_script')))
   if (!scriptAsset) throw new Error(`No ad scripts for run ${runId}`)
 
-  const scripts = JSON.parse(scriptAsset.content) as Array<{ script30s: string }>
+  const scripts = parseClaudeJson(scriptAsset.content) as Array<{ script30s: string }>
   const primary = scripts[0]
   if (!primary) throw new Error('No primary script')
 

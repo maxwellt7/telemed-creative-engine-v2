@@ -1,4 +1,4 @@
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
 import { db, researchArtifacts, reverseBriefs, offerProfiles, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and, desc } from 'drizzle-orm'
@@ -56,7 +56,7 @@ export async function runReverseBrief(runId: string) {
     maxTokens: 4096,
   })
 
-  const parsed = JSON.parse(brief)
+  const parsed = parseClaudeJson(brief)
   await db.insert(reverseBriefs).values({
     runId,
     sourceUrl: top.url,
@@ -85,7 +85,7 @@ export async function runCopyConcepts(runId: string) {
     maxTokens: 4096,
   })
 
-  const parsed = JSON.parse(concepts)
+  const parsed = parseClaudeJson(concepts)
 
   if (brief) {
     await db.update(reverseBriefs).set({ conceptsJson: parsed }).where(eq(reverseBriefs.runId, runId))

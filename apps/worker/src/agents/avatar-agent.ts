@@ -1,4 +1,4 @@
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
 import { db, offerProfiles, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq } from 'drizzle-orm'
@@ -31,7 +31,7 @@ export async function runAvatarAgent(runId: string) {
     maxTokens: 8192,
   })
 
-  const avatars = JSON.parse(text)
+  const avatars = parseClaudeJson(text)
   await db.update(offerProfiles).set({ avatarJson: avatars }).where(eq(offerProfiles.runId, runId))
   await db.update(pipelineRuns).set({ currentStage: 'COMPETITOR_DISCOVER' }).where(eq(pipelineRuns.id, runId))
   await log(runId, 'AVATAR_BUILD', `Built ${avatars.length} avatar profiles`)

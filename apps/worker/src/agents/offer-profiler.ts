@@ -1,4 +1,4 @@
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
 import { db, offerProfiles, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq } from 'drizzle-orm'
@@ -52,7 +52,7 @@ export async function runOfferProfiler(runId: string, product: ProductInput) {
     thinkingBudget: 2048,
   })
 
-  const parsed = JSON.parse(text)
+  const parsed = parseClaudeJson(text)
 
   await db.insert(offerProfiles).values({
     runId,

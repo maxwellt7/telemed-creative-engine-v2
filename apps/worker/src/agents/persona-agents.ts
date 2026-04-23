@@ -1,4 +1,4 @@
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
 import { db, personas, copyAssets, creativeAssets, personaReviews, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and, desc } from 'drizzle-orm'
@@ -44,7 +44,7 @@ async function reviewAsset(
       messages: [{ role: 'user', content: `Review this ${assetType}:\n\n${assetContent.slice(0, 5000)}` }],
       maxTokens: 512,
     })
-    return JSON.parse(text)
+    return parseClaudeJson(text)
   } catch {
     return { score: 5, sentiment: 'neutral', objection: 'Review failed', suggestedEdit: 'N/A' }
   }
