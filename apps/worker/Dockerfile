@@ -25,6 +25,7 @@ COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/worker/node_modules /app/apps/worker/node_modules
 COPY --from=builder /app/packages/shared/dist /app/packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json /app/packages/shared/package.json
+COPY --from=builder /app/packages/shared/node_modules /app/packages/shared/node_modules
 
 ENV NODE_ENV=production
 EXPOSE 3001
