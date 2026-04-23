@@ -42,9 +42,14 @@ export default async function AssetsPage({ params }: { params: { id: string } })
       {adScripts.length > 0 && (
         <div style={sectionStyle}>
           <h2 style={headingStyle}>Ad Scripts</h2>
-          <div style={{ background: '#1e293b', borderRadius: 8, padding: '1.25rem', fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', color: '#e2e8f0', maxHeight: 300, overflowY: 'auto' }}>
-            {adScripts[0].content}
-          </div>
+          {adScripts.map((script, idx) => (
+            <div key={script.id} style={{ marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: 4 }}>Script {idx + 1}</div>
+              <div style={{ background: '#1e293b', borderRadius: 8, padding: '1.25rem', fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', color: '#e2e8f0', maxHeight: 300, overflowY: 'auto' }}>
+                {script.content}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -12,19 +12,18 @@ export default function RunDetailPage({ params }: { params: { id: string } }) {
   const [logs, setLogs] = useState<Log[]>([])
   const [loading, setLoading] = useState(true)
 
-  async function refresh() {
-    try {
-      const [r, l] = await Promise.all([
-        trpc.runs.get.query({ runId: params.id }),
-        trpc.runs.logs.query({ runId: params.id }),
-      ])
-      setRun(r)
-      setLogs(l)
-    } catch { /* ignore polling errors */ }
-    finally { setLoading(false) }
-  }
-
   useEffect(() => {
+    async function refresh() {
+      try {
+        const [r, l] = await Promise.all([
+          trpc.runs.get.query({ runId: params.id }),
+          trpc.runs.logs.query({ runId: params.id }),
+        ])
+        setRun(r)
+        setLogs(l)
+      } catch { /* ignore polling errors */ }
+      finally { setLoading(false) }
+    }
     refresh()
     const interval = setInterval(refresh, 3000)
     return () => clearInterval(interval)

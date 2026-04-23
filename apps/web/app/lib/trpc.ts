@@ -4,7 +4,7 @@ import type { AppRouter } from '../../../worker/src/router'
 export const trpc = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
-      url: `${process.env.RAILWAY_BACKEND_URL ?? 'http://localhost:3001'}/trpc`,
+      url: `${process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'}/trpc`,
     }),
   ],
 })
