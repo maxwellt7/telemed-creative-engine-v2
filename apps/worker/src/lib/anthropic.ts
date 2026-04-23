@@ -14,9 +14,10 @@ export interface CallClaudeOptions {
   thinkingBudget?: number
 }
 
-export function parseClaudeJson<T = unknown>(text: string): T {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function parseClaudeJson(text: string): any {
   const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
-  return JSON.parse(stripped) as T
+  return JSON.parse(stripped)
 }
 
 export async function callClaude(client: Anthropic, opts: CallClaudeOptions): Promise<string> {
