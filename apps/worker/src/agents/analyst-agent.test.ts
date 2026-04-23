@@ -7,7 +7,7 @@ vi.mock('../lib/firecrawl.js', () => ({
 
 vi.mock('../lib/anthropic.js', () => ({
   anthropic: {},
-  callClaude: vi.fn().mockResolvedValue(JSON.stringify({
+  callClaudeJSON: vi.fn().mockResolvedValue({
     hookStructure: 'problem-agitate-solve',
     beliefBridges: ['telemedicine is real medicine'],
     ctaMechanics: 'urgency + scarcity',
@@ -17,7 +17,7 @@ vi.mock('../lib/anthropic.js', () => ({
     pacing: 'fast opening, slows at proof section',
     socialProofTypes: ['testimonials', 'doctor credentials'],
     objectionHandling: ['is it real medicine?', 'is it private?'],
-  })),
+  }),
 }))
 
 vi.mock('../db/index.js', () => ({
@@ -43,8 +43,8 @@ describe('analyst-agent', () => {
   })
 
   it('reverse engineers with Claude', async () => {
-    const { callClaude } = await import('../lib/anthropic.js')
+    const { callClaudeJSON } = await import('../lib/anthropic.js')
     await runReverseEngineer('run-abc')
-    expect(callClaude).toHaveBeenCalled()
+    expect(callClaudeJSON).toHaveBeenCalled()
   })
 })

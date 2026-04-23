@@ -1,8 +1,20 @@
 import { scrapeUrl } from '../lib/firecrawl.js'
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaudeJSON } from '../lib/anthropic.js'
 import { db, researchArtifacts, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and } from 'drizzle-orm'
+
+interface ReverseEngineerAnalysis {
+  hookStructure: string
+  beliefBridges: string[]
+  ctaMechanics: string
+  voice: string
+  emotionalArc: string[]
+  keyPhrases: string[]
+  pacing: string
+  socialProofTypes: string[]
+  objectionHandling: string[]
+}
 
 export async function runAdvertorialFetch(runId: string) {
   await log(runId, 'ADVERTORIAL_FETCH', 'Fetching full advertorial content via Firecrawl')
@@ -27,18 +39,23 @@ export async function runAdvertorialFetch(runId: string) {
 
 const REVERSE_ENGINEER_SYSTEM = `You are a direct-response copywriting analyst. Reverse engineer this advertorial line by line.
 
-Respond ONLY with valid JSON:
-{
-  "hookStructure": "string",
-  "beliefBridges": ["string"],
-  "ctaMechanics": "string",
-  "voice": "string",
-  "emotionalArc": ["string"],
-  "keyPhrases": ["string — phrases with highest conversion weight"],
-  "pacing": "string",
-  "socialProofTypes": ["string"],
-  "objectionHandling": ["string — implicit objections the copy addresses"]
-}`
+Return your analysis by calling the submit_reverse_engineering tool.`
+
+const REVERSE_ENGINEER_SCHEMA = {
+  type: 'object',
+  properties: {
+    hookStructure: { type: 'string' },
+    beliefBridges: { type: 'array', items: { type: 'string' } },
+    ctaMechanics: { type: 'string' },
+    voice: { type: 'string' },
+    emotionalArc: { type: 'array', items: { type: 'string' } },
+    keyPhrases: { type: 'array', items: { type: 'string' }, description: 'phrases with highest conversion weight' },
+    pacing: { type: 'string' },
+    socialProofTypes: { type: 'array', items: { type: 'string' } },
+    objectionHandling: { type: 'array', items: { type: 'string' }, description: 'implicit objections the copy addresses' },
+  },
+  required: ['hookStructure', 'beliefBridges', 'ctaMechanics', 'voice', 'emotionalArc', 'keyPhrases', 'pacing', 'socialProofTypes', 'objectionHandling'],
+}
 
 export async function runReverseEngineer(runId: string) {
   await log(runId, 'REVERSE_ENGINEER', 'Reverse engineering top advertorial')
@@ -54,7 +71,7 @@ export async function runReverseEngineer(runId: string) {
 
   const top = artifacts.sort((a, b) => (b.trafficScore ?? 0) - (a.trafficScore ?? 0))[0]
 
-  const analysis = await callClaude(anthropic, {
+  const analysis = await callClaudeJSON<ReverseEngineerAnalysis>(anthropic, {
     model: 'claude-opus-4-7',
     system: REVERSE_ENGINEER_SYSTEM,
     messages: [{
@@ -63,10 +80,15 @@ export async function runReverseEngineer(runId: string) {
     }],
     maxTokens: 4096,
     thinkingBudget: 2000,
+    tool: {
+      name: 'submit_reverse_engineering',
+      description: 'Submit the reverse engineering analysis of the advertorial',
+      input_schema: REVERSE_ENGINEER_SCHEMA,
+    },
   })
 
   await db.update(researchArtifacts)
-    .set({ analysisJson: JSON.parse(analysis) })
+    .set({ analysisJson: analysis })
     .where(eq(researchArtifacts.id, top.id))
 
   await db.update(pipelineRuns).set({ currentStage: 'REVERSE_BRIEF' }).where(eq(pipelineRuns.id, runId))
