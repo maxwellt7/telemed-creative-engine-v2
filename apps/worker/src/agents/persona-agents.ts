@@ -1,4 +1,4 @@
-import { anthropic, callClaude } from '../lib/anthropic.js'
+import { anthropic, callClaudeJSON } from '../lib/anthropic.js'
 import { db, personas, copyAssets, creativeAssets, personaReviews, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and, desc } from 'drizzle-orm'
@@ -13,6 +13,24 @@ interface PersonaRow {
   psychographicsJson: unknown
 }
 
+interface PersonaReview {
+  score: number
+  sentiment: 'positive' | 'neutral' | 'negative'
+  objection: string
+  suggestedEdit: string
+}
+
+const PERSONA_REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    score: { type: 'number', minimum: 1, maximum: 10 },
+    sentiment: { type: 'string', enum: ['positive', 'neutral', 'negative'] },
+    objection: { type: 'string', description: 'your specific concern' },
+    suggestedEdit: { type: 'string', description: 'one concrete change that would move you' },
+  },
+  required: ['score', 'sentiment', 'objection', 'suggestedEdit'],
+}
+
 function buildPersonaSystem(persona: PersonaRow): string {
   return `You are ${persona.name}, a real person (${persona.archetype}).
 
@@ -23,28 +41,26 @@ What you value most: ${persona.primaryCurrency}
 
 You are reviewing a telemedicine advertisement. Be brutally honest. Score 1-10 based on how likely YOU would click/buy.
 
-Respond ONLY with valid JSON:
-{
-  "score": number,
-  "sentiment": "positive" | "neutral" | "negative",
-  "objection": "string — your specific concern",
-  "suggestedEdit": "string — one concrete change that would move you"
-}`
+Return your review by calling the submit_persona_review tool.`
 }
 
 async function reviewAsset(
   persona: PersonaRow,
   assetContent: string,
   assetType: string
-): Promise<{ score: number; sentiment: string; objection: string; suggestedEdit: string }> {
+): Promise<PersonaReview> {
   try {
-    const text = await callClaude(anthropic, {
+    return await callClaudeJSON<PersonaReview>(anthropic, {
       model: 'claude-sonnet-4-6',
       system: buildPersonaSystem(persona),
       messages: [{ role: 'user', content: `Review this ${assetType}:\n\n${assetContent.slice(0, 5000)}` }],
-      maxTokens: 512,
+      maxTokens: 1024,
+      tool: {
+        name: 'submit_persona_review',
+        description: 'Submit your persona review of the advertisement',
+        input_schema: PERSONA_REVIEW_SCHEMA,
+      },
     })
-    return JSON.parse(text)
   } catch {
     return { score: 5, sentiment: 'neutral', objection: 'Review failed', suggestedEdit: 'N/A' }
   }
