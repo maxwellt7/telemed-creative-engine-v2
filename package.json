@@ -1,6 +1,7 @@
 {
   "name": "telemed-creative-engine-v2",
   "private": true,
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
