@@ -1,4 +1,4 @@
-import { db, personas } from './index'
+import { db, personas } from './index.js'
 
 const PERSONA_DATA = [
   { name: 'Harold', archetype: 'Skeptical Boomer', demographics: { ageRange: '58-68', gender: 'M' }, psychographics: { trustLevel: 'low', techComfort: 'low' }, primaryFear: "It's not real medicine", primaryCurrency: 'Security' },

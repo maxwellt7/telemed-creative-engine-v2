@@ -22,7 +22,7 @@ export const pipelineRuns = pgTable('pipeline_runs', {
   startedAt: timestamp('started_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
   createdBy: text('created_by').notNull(),
-}, (t) => [index('pipeline_runs_product_id_idx').on(t.productId)])
+}, (t) => ({ pipeline_runs_product_id_idx: index('pipeline_runs_product_id_idx').on(t.productId) }))
 
 export const stageLogs = pgTable('stage_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -32,7 +32,7 @@ export const stageLogs = pgTable('stage_logs', {
   message: text('message').notNull(),
   metadataJson: jsonb('metadata_json'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => [index('stage_logs_run_id_idx').on(t.runId)])
+}, (t) => ({ stage_logs_run_id_idx: index('stage_logs_run_id_idx').on(t.runId) }))
 
 export const offerProfiles = pgTable('offer_profiles', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -53,7 +53,7 @@ export const researchArtifacts = pgTable('research_artifacts', {
   trafficScore: real('traffic_score'),
   rawContent: text('raw_content'),
   analysisJson: jsonb('analysis_json'),
-}, (t) => [index('research_artifacts_run_id_idx').on(t.runId)])
+}, (t) => ({ research_artifacts_run_id_idx: index('research_artifacts_run_id_idx').on(t.runId) }))
 
 export const reverseBriefs = pgTable('reverse_briefs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -72,7 +72,7 @@ export const copyAssets = pgTable('copy_assets', {
   version: integer('version').notNull().default(1),
   score: real('score'),
   status: text('status').notNull().default('draft'),
-}, (t) => [index('copy_assets_run_id_idx').on(t.runId)])
+}, (t) => ({ copy_assets_run_id_idx: index('copy_assets_run_id_idx').on(t.runId) }))
 
 export const creativeAssets = pgTable('creative_assets', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -83,7 +83,7 @@ export const creativeAssets = pgTable('creative_assets', {
   format: text('format'),
   score: real('score'),
   status: text('status').notNull().default('generating'),
-}, (t) => [index('creative_assets_run_id_idx').on(t.runId)])
+}, (t) => ({ creative_assets_run_id_idx: index('creative_assets_run_id_idx').on(t.runId) }))
 
 export const funnelPages = pgTable('funnel_pages', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -114,10 +114,10 @@ export const personaReviews = pgTable('persona_reviews', {
   sentiment: text('sentiment').notNull(),
   objection: text('objection').notNull(),
   suggestedEdit: text('suggested_edit').notNull(),
-}, (t) => [
-  index('persona_reviews_run_id_idx').on(t.runId),
-  index('persona_reviews_asset_id_idx').on(t.assetId),
-])
+}, (t) => ({
+  persona_reviews_run_id_idx: index('persona_reviews_run_id_idx').on(t.runId),
+  persona_reviews_asset_id_idx: index('persona_reviews_asset_id_idx').on(t.assetId),
+}))
 
 export const clickupDeliverables = pgTable('clickup_deliverables', {
   id: uuid('id').defaultRandom().primaryKey(),

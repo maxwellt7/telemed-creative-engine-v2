@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { products, pipelineRuns, stageLogs, personas } from './schema'
+import { products, pipelineRuns, stageLogs, personas } from './schema.js'
 
 describe('database schema', () => {
   it('products table has vertical default telemedicine', () => {
