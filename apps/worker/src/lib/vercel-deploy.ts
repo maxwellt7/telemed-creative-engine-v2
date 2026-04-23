@@ -1,5 +1,7 @@
 export async function deployAdvertorial(htmlContent: string, slug: string): Promise<string> {
-  const res = await fetch('https://api.vercel.com/v13/deployments', {
+  const teamId = process.env.VERCEL_TEAM_ID
+  const url = `https://api.vercel.com/v13/deployments${teamId ? `?teamId=${teamId}` : ''}`
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
@@ -14,7 +16,6 @@ export async function deployAdvertorial(htmlContent: string, slug: string): Prom
       }],
       projectSettings: { framework: null, outputDirectory: '.' },
       target: 'preview',
-      teamId: process.env.VERCEL_TEAM_ID,
     }),
   })
   if (!res.ok) {
