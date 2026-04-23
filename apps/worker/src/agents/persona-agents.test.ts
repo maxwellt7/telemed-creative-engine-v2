@@ -52,13 +52,22 @@ describe('persona-agents', () => {
 
   it('runPersonaTest calls reviewAsset and inserts reviews when assets exist', async () => {
     const { db } = await import('../db/index.js')
+    const advertorialRow = [{ id: 'asset-1', type: 'advertorial', content: 'Advertorial copy here', runId: 'run-1', version: 1 }]
+    const makeWhereResult = (rows: unknown[]) => {
+      const result = {
+        orderBy: vi.fn().mockImplementation(() => ({
+          limit: vi.fn().mockResolvedValue(rows),
+        })),
+        then: (resolve: (v: unknown) => unknown, _reject?: unknown) => Promise.resolve(rows).then(resolve as any),
+        catch: vi.fn().mockResolvedValue(rows),
+      }
+      return result
+    }
     vi.mocked(db.select).mockImplementation(() => ({
       from: vi.fn().mockImplementation((table: unknown) => {
         if (table === 'personas_table') return Promise.resolve(mockPersonas)
         return {
-          where: vi.fn().mockImplementation(() =>
-            Promise.resolve([{ id: 'asset-1', type: 'advertorial', content: 'Advertorial copy here', runId: 'run-1' }])
-          ),
+          where: vi.fn().mockImplementation(() => makeWhereResult(advertorialRow)),
         }
       }),
     } as any))

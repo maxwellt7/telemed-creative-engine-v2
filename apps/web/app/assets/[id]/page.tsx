@@ -3,8 +3,9 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetsPage({ params }: { params: { id: string } }) {
-  const { copy, creative, funnel } = await trpc.runs.assets.query({ runId: params.id })
+export default async function AssetsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const { copy, creative, funnel } = await trpc.runs.assets.query({ runId: id })
 
   const advertorials = copy.filter((c) => c.type === 'advertorial').sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
   const adScripts = copy.filter((c) => c.type === 'ad_script')
@@ -18,7 +19,7 @@ export default async function AssetsPage({ params }: { params: { id: string } })
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '2rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Assets</h1>
-        <Link href={`/runs/${params.id}`} style={{ color: '#0066CC', textDecoration: 'none', fontSize: '0.875rem' }}>← Back to run</Link>
+        <Link href={`/runs/${id}`} style={{ color: '#0066CC', textDecoration: 'none', fontSize: '0.875rem' }}>← Back to run</Link>
       </div>
 
       {funnel[0]?.vercelUrl && (

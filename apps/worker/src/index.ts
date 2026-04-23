@@ -9,7 +9,16 @@ import { seedPersonas } from './db/seed-personas.js'
 const app = express()
 app.use(cors())
 app.use(express.json())
-app.use('/trpc', createExpressMiddleware({ router: appRouter }))
+// Auth guard: only enforced when API_SECRET is set (allows local dev without the env var).
+// Note: client component calls (runs.start mutation) bypass auth — acceptable for MVP.
+app.use('/trpc', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const secret = process.env.API_SECRET
+  if (secret && req.headers['x-api-secret'] !== secret) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+  next()
+}, createExpressMiddleware({ router: appRouter }))
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
 const _worker = createPipelineWorker(runPipeline)

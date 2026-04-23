@@ -21,6 +21,8 @@ FROM base AS runner
 WORKDIR /app/apps/worker
 COPY --from=builder /app/apps/worker/dist ./dist
 COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/packages/shared/dist /app/packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json /app/packages/shared/package.json
 
 ENV NODE_ENV=production
 EXPOSE 3001

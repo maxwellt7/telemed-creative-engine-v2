@@ -1,7 +1,7 @@
 import { anthropic, callClaude } from '../lib/anthropic.js'
 import { db, personas, copyAssets, creativeAssets, personaReviews, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 
 interface PersonaRow {
   id: string
@@ -60,6 +60,8 @@ export async function runPersonaTest(runId: string) {
 
   const [advertorial] = await db.select().from(copyAssets)
     .where(and(eq(copyAssets.runId, runId), eq(copyAssets.type, 'advertorial')))
+    .orderBy(desc(copyAssets.version))
+    .limit(1)
   if (advertorial) assets.push({ id: advertorial.id, type: 'advertorial', content: advertorial.content })
 
   const [adScript] = await db.select().from(copyAssets)
