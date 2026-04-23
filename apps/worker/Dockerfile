@@ -21,6 +21,7 @@ RUN pnpm --filter @telemed/worker build
 FROM base AS runner
 WORKDIR /app/apps/worker
 COPY --from=builder /app/apps/worker/dist ./dist
+COPY --from=builder /app/apps/worker/drizzle ./drizzle
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/apps/worker/node_modules /app/apps/worker/node_modules
 COPY --from=builder /app/packages/shared/dist /app/packages/shared/dist
@@ -29,4 +30,4 @@ COPY --from=builder /app/packages/shared/node_modules /app/packages/shared/node_
 
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["node", "--dns-result-order=ipv4first", "dist/index.js"]
+CMD ["sh", "-c", "node dist/db/migrate.js && node dist/index.js"]
