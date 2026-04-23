@@ -25,6 +25,7 @@ export async function runPipeline(runId: string) {
   await db.update(pipelineRuns).set({ status: 'running', currentStage: 'INTAKE' }).where(eq(pipelineRuns.id, runId))
 
   const p = { name: product.name, url: product.url, brief: product.brief, targetMarket: product.targetMarket }
+  const errorLogStage = run.currentStage
 
   try {
     await log(runId, 'INTAKE', `Pipeline started for ${product.name}`)
@@ -60,13 +61,9 @@ export async function runPipeline(runId: string) {
     await runQAFinal(runId)                   // Stage 20
     await runClickUpPublisher(runId)          // Stage 21
 
-    await db.update(pipelineRuns)
-      .set({ status: 'complete', completedAt: new Date() })
-      .where(eq(pipelineRuns.id, runId))
-
   } catch (err) {
     await db.update(pipelineRuns).set({ status: 'failed' }).where(eq(pipelineRuns.id, runId))
-    await log(runId, 'INTAKE', `Pipeline failed: ${String(err)}`, 'error')
+    await log(runId, errorLogStage, `Pipeline failed: ${String(err)}`, 'error')
     throw err
   }
 }

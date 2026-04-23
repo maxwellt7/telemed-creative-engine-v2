@@ -59,6 +59,7 @@ export async function runClickUpPublisher(runId: string) {
     .set({ status: 'complete', currentStage: 'DELIVERY', completedAt: new Date() })
     .where(eq(pipelineRuns.id, runId))
 
-  const totalTasks = 1 + staticAds.length + videoFinals.length
+  const advertorialCount = (advertorial && funnelPage?.vercelUrl) ? 1 : 0
+  const totalTasks = advertorialCount + staticAds.length + videoFinals.length
   await log(runId, 'DELIVERY', `Pipeline complete — ${totalTasks} tasks created in ClickUp`)
 }
