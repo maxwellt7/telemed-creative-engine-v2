@@ -1,65 +1,62 @@
 import { describe, it, expect, vi } from 'vitest'
-import { shouldRevise, computeScoreSummaries, runRevision, runQAFinal } from './qa-agent.js'
+import { computeScoreSummaries, evaluateAsset, TARGET_THRESHOLD, runQAFinal } from './qa-agent.js'
 
-vi.mock('../db/index', () => ({
+vi.mock('../db/index.js', () => ({
   db: {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([
-          { assetId: 'copy-1', assetType: 'advertorial', score: 6.0, objection: 'Too vague', suggestedEdit: 'Add specifics' },
-          { assetId: 'copy-1', assetType: 'advertorial', score: 5.5, objection: 'No proof', suggestedEdit: 'Add testimonials' },
-          { assetId: 'copy-1', assetType: 'advertorial', score: 7.5, objection: 'Minor trust issue', suggestedEdit: 'Add guarantee' },
-        ]),
+        where: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+          limit: vi.fn().mockResolvedValue([]),
+        }),
+        orderBy: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([]),
+        }),
       }),
     }),
     update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }) }),
+    insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue([]) }),
   },
   personaReviews: {},
   pipelineRuns: {},
+  copyAssets: {},
+  creativeAssets: {},
+  funnelPages: {},
+  assetRevisionState: {},
 }))
 
-vi.mock('../pipeline/logger', () => ({ log: vi.fn() }))
+vi.mock('../pipeline/logger.js', () => ({ log: vi.fn() }))
+vi.mock('../lib/anthropic.js', () => ({ anthropic: {}, callClaude: vi.fn(), parseClaudeJson: vi.fn() }))
+vi.mock('../lib/gemini.js', () => ({ callGeminiText: vi.fn(), isGeminiConfigured: vi.fn().mockReturnValue(false) }))
+vi.mock('../lib/fal.js', () => ({ generateStaticAd: vi.fn() }))
+vi.mock('../lib/storage.js', () => ({ uploadImage: vi.fn() }))
 
 describe('qa-agent', () => {
-  it('shouldRevise returns true when avg < 7.0', () => {
-    expect(shouldRevise(6.33)).toBe(true)
-    expect(shouldRevise(6.99)).toBe(true)
+  it('TARGET_THRESHOLD is 9.5 by default', () => {
+    expect(TARGET_THRESHOLD).toBe(9.5)
   })
 
-  it('shouldRevise returns false when avg >= 7.0', () => {
-    expect(shouldRevise(7.0)).toBe(false)
-    expect(shouldRevise(8.5)).toBe(false)
-  })
-
-  it('exports computeScoreSummaries and runQAFinal', () => {
+  it('exports computeScoreSummaries, evaluateAsset, runQAFinal', () => {
     expect(typeof computeScoreSummaries).toBe('function')
+    expect(typeof evaluateAsset).toBe('function')
     expect(typeof runQAFinal).toBe('function')
   })
 
-  it('runRevision returns false when all assets pass (avg >= 7.0)', async () => {
+  it('computeScoreSummaries flags assets below TARGET_THRESHOLD', async () => {
     const { db } = await import('../db/index.js')
     vi.mocked(db.select).mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue([
-          { assetId: 'copy-1', assetType: 'advertorial', score: 8.0, objection: 'None', suggestedEdit: 'None' },
-          { assetId: 'copy-1', assetType: 'advertorial', score: 9.0, objection: 'None', suggestedEdit: 'None' },
+          { assetId: 'a1', assetType: 'advertorial', score: 6.0, objection: 'Too vague', suggestedEdit: 'Add specifics', passNumber: 1 },
+          { assetId: 'a1', assetType: 'advertorial', score: 7.5, objection: 'No proof', suggestedEdit: 'Add testimonials', passNumber: 1 },
+          { assetId: 'a2', assetType: 'ad_script', score: 9.8, objection: 'None', suggestedEdit: 'None', passNumber: 1 },
         ]),
       }),
     } as any)
-    const result = await runRevision('run-1', 0)
-    expect(result).toBe(false)
-  })
-
-  it('runRevision returns false when revisionPass >= 3', async () => {
-    const { db } = await import('../db/index.js')
-    vi.mocked(db.select).mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([
-          { assetId: 'copy-1', assetType: 'advertorial', score: 3.0, objection: 'Bad', suggestedEdit: 'Fix it' },
-        ]),
-      }),
-    } as any)
-    const result = await runRevision('run-1', 3)
-    expect(result).toBe(false)
+    const summaries = await computeScoreSummaries('run-1')
+    const advertorial = summaries.find((s) => s.assetType === 'advertorial')
+    const adScript = summaries.find((s) => s.assetType === 'ad_script')
+    expect(advertorial?.requiresRevision).toBe(true)
+    expect(adScript?.requiresRevision).toBe(false)
   })
 })

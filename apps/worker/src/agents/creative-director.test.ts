@@ -3,6 +3,7 @@ import { runCreativeDirection, runAdScripts } from './creative-director.js'
 
 vi.mock('../lib/anthropic.js', () => ({
   anthropic: {},
+  parseClaudeJson: vi.fn().mockImplementation((text: string) => JSON.parse(text)),
   callClaude: vi.fn()
     .mockResolvedValueOnce(JSON.stringify([
       { concept: 'Real Doctor Real Results', visual: 'doctor with patient', emotion: 'trust', format: 'testimonial', targetPersona: 'Harold', hook: 'OPEN: Doctor looks at camera', valueProposition: 'Real doctors, real prescriptions' },

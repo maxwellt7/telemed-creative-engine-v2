@@ -7,6 +7,7 @@ vi.mock('../lib/firecrawl.js', () => ({
 
 vi.mock('../lib/anthropic.js', () => ({
   anthropic: {},
+  parseClaudeJson: vi.fn().mockImplementation((text: string) => JSON.parse(text)),
   callClaude: vi.fn().mockResolvedValue(JSON.stringify({
     hookStructure: 'problem-agitate-solve',
     beliefBridges: ['telemedicine is real medicine'],

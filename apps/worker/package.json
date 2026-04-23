@@ -10,10 +10,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@telemed/shared": "workspace:*",
     "@anthropic-ai/sdk": "^0.36.0",
     "@fal-ai/client": "^1.0.0",
+    "@google/genai": "^1.50.1",
     "@mendable/firecrawl-js": "^1.0.0",
+    "@telemed/shared": "workspace:*",
     "@trpc/server": "^11.0.0",
     "bullmq": "^5.0.0",
     "cors": "^2.8.5",

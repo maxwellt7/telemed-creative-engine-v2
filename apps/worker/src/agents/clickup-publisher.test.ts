@@ -45,6 +45,7 @@ vi.mock('../db/index', () => ({
   funnelPages: 'funnel_pages_table',
   clickupDeliverables: 'clickup_deliverables_table',
   personaReviews: 'persona_reviews_table',
+  assetRevisionState: 'asset_revision_state_table',
 }))
 
 vi.mock('../pipeline/logger', () => ({ log: vi.fn() }))

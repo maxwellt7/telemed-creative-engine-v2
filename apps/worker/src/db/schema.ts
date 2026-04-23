@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, integer, jsonb, real, index,
+  pgTable, uuid, text, timestamp, integer, jsonb, real, index, boolean,
 } from 'drizzle-orm/pg-core'
 
 export const products = pgTable('products', {
@@ -114,9 +114,37 @@ export const personaReviews = pgTable('persona_reviews', {
   sentiment: text('sentiment').notNull(),
   objection: text('objection').notNull(),
   suggestedEdit: text('suggested_edit').notNull(),
+  passNumber: integer('pass_number').notNull().default(1),
+  createdAt: timestamp('created_at').defaultNow(),
 }, (t) => ({
   persona_reviews_run_id_idx: index('persona_reviews_run_id_idx').on(t.runId),
   persona_reviews_asset_id_idx: index('persona_reviews_asset_id_idx').on(t.assetId),
+}))
+
+export const advertorialDesigns = pgTable('advertorial_designs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  runId: uuid('run_id').references(() => pipelineRuns.id).notNull().unique(),
+  planJson: jsonb('plan_json').notNull(),
+  assetsJson: jsonb('assets_json').notNull(),
+  colorPaletteJson: jsonb('color_palette_json'),
+  typographyPairing: text('typography_pairing'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (t) => ({
+  advertorial_designs_run_id_idx: index('advertorial_designs_run_id_idx').on(t.runId),
+}))
+
+export const assetRevisionState = pgTable('asset_revision_state', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  runId: uuid('run_id').references(() => pipelineRuns.id).notNull(),
+  assetId: uuid('asset_id').notNull(),
+  assetType: text('asset_type').notNull(),
+  currentPass: integer('current_pass').notNull().default(1),
+  lastAvgScore: real('last_avg_score'),
+  status: text('status').notNull().default('reviewing'),
+  passedAt: timestamp('passed_at'),
+  history: jsonb('history').notNull().default('[]'),
+}, (t) => ({
+  asset_revision_state_run_asset_idx: index('asset_revision_state_run_asset_idx').on(t.runId, t.assetId),
 }))
 
 export const clickupDeliverables = pgTable('clickup_deliverables', {

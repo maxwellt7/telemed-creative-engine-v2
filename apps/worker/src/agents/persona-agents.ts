@@ -1,5 +1,5 @@
 import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
-import { db, personas, copyAssets, creativeAssets, personaReviews, pipelineRuns } from '../db/index.js'
+import { db, personas, copyAssets, creativeAssets, funnelPages, personaReviews, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and, desc } from 'drizzle-orm'
 
@@ -50,12 +50,7 @@ async function reviewAsset(
   }
 }
 
-export async function runPersonaTest(runId: string) {
-  await log(runId, 'PERSONA_TEST', 'Running 15-persona review panel')
-
-  const allPersonas = await db.select().from(personas)
-  if (allPersonas.length === 0) throw new Error('No personas seeded — run seed-personas.ts first')
-
+async function loadAllAssets(runId: string): Promise<Array<{ id: string; type: string; content: string }>> {
   const assets: Array<{ id: string; type: string; content: string }> = []
 
   const [advertorial] = await db.select().from(copyAssets)
@@ -66,6 +61,8 @@ export async function runPersonaTest(runId: string) {
 
   const [adScript] = await db.select().from(copyAssets)
     .where(and(eq(copyAssets.runId, runId), eq(copyAssets.type, 'ad_script')))
+    .orderBy(desc(copyAssets.version))
+    .limit(1)
   if (adScript) assets.push({ id: adScript.id, type: 'ad_script', content: adScript.content })
 
   const staticAds = await db.select().from(creativeAssets)
@@ -74,6 +71,37 @@ export async function runPersonaTest(runId: string) {
     if (ad.storageUrl) assets.push({ id: ad.id, type: 'static_ad', content: `Static ad (${ad.format}): ${ad.storageUrl}` })
   }
 
+  return assets
+}
+
+async function loadAssetById(runId: string, assetId: string, assetType: string): Promise<{ id: string; type: string; content: string } | null> {
+  if (assetType === 'advertorial' || assetType === 'ad_script') {
+    const [asset] = await db.select().from(copyAssets)
+      .where(and(eq(copyAssets.runId, runId), eq(copyAssets.id, assetId)))
+    if (!asset) return null
+    return { id: asset.id, type: asset.type, content: asset.content }
+  }
+  if (assetType === 'static_ad' || assetType === 'video_draft' || assetType === 'video_final') {
+    const [asset] = await db.select().from(creativeAssets)
+      .where(and(eq(creativeAssets.runId, runId), eq(creativeAssets.id, assetId)))
+    if (!asset?.storageUrl) return null
+    return { id: asset.id, type: asset.type, content: `${asset.type} (${asset.format}): ${asset.storageUrl}` }
+  }
+  if (assetType === 'funnel_page') {
+    const [page] = await db.select().from(funnelPages).where(eq(funnelPages.runId, runId))
+    if (!page) return null
+    return { id: page.id, type: 'funnel_page', content: page.htmlContent.slice(0, 5000) }
+  }
+  return null
+}
+
+export async function runPersonaTest(runId: string) {
+  await log(runId, 'PERSONA_TEST', 'Running 15-persona review panel')
+
+  const allPersonas = await db.select().from(personas)
+  if (allPersonas.length === 0) throw new Error('No personas seeded — run seed-personas.ts first')
+
+  const assets = await loadAllAssets(runId)
   let totalReviews = 0
 
   for (const asset of assets) {
@@ -89,6 +117,7 @@ export async function runPersonaTest(runId: string) {
           sentiment: result.sentiment,
           objection: result.objection,
           suggestedEdit: result.suggestedEdit,
+          passNumber: 1,
         }
       })
     )
@@ -98,4 +127,37 @@ export async function runPersonaTest(runId: string) {
 
   await db.update(pipelineRuns).set({ currentStage: 'FEEDBACK_AGGREGATE' }).where(eq(pipelineRuns.id, runId))
   await log(runId, 'PERSONA_TEST', `Completed ${totalReviews} reviews across ${assets.length} assets`)
+}
+
+export async function runPersonaTestForAsset(runId: string, assetId: string, assetType: string, passNumber: number): Promise<void> {
+  await log(runId, 'PERSONA_TEST', `Reviewing ${assetType} (pass ${passNumber})`)
+
+  const allPersonas = await db.select().from(personas)
+  if (allPersonas.length === 0) throw new Error('No personas seeded')
+
+  const asset = await loadAssetById(runId, assetId, assetType)
+  if (!asset) {
+    await log(runId, 'PERSONA_TEST', `Asset ${assetId} not found for re-review — skipping`, 'warn')
+    return
+  }
+
+  const reviews = await Promise.all(
+    allPersonas.map(async (persona) => {
+      const result = await reviewAsset(persona, asset.content, asset.type)
+      return {
+        runId,
+        personaId: persona.id,
+        assetId: asset.id,
+        assetType: asset.type,
+        score: result.score,
+        sentiment: result.sentiment,
+        objection: result.objection,
+        suggestedEdit: result.suggestedEdit,
+        passNumber,
+      }
+    })
+  )
+
+  await db.insert(personaReviews).values(reviews)
+  await log(runId, 'PERSONA_TEST', `Completed ${reviews.length} reviews for ${assetType} pass ${passNumber}`)
 }

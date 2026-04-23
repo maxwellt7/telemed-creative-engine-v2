@@ -3,6 +3,7 @@ import { runReverseBrief, runCopyConcepts } from './brief-writer.js'
 
 vi.mock('../lib/anthropic.js', () => ({
   anthropic: {},
+  parseClaudeJson: vi.fn().mockImplementation((text: string) => JSON.parse(text)),
   callClaude: vi.fn()
     .mockResolvedValueOnce(JSON.stringify({
       whyItConverts: 'Fear-based hook + instant relief promise',

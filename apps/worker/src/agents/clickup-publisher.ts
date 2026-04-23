@@ -1,7 +1,17 @@
 import { createAdvertorialTask, createCreativeTask } from '../lib/clickup.js'
-import { db, pipelineRuns, products, copyAssets, creativeAssets, funnelPages, clickupDeliverables, personaReviews } from '../db/index.js'
+import { db, pipelineRuns, products, copyAssets, creativeAssets, funnelPages, clickupDeliverables, personaReviews, assetRevisionState } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and, desc } from 'drizzle-orm'
+
+function buildQualityNote(states: typeof assetRevisionState.$inferSelect[]): string {
+  if (states.length === 0) return ''
+  const lines = states.map((s) => {
+    const score = s.lastAvgScore != null ? ` | score: ${Number(s.lastAvgScore).toFixed(1)}/10` : ''
+    const flag = s.status === 'force_delivered' ? ' ⚠️ BELOW THRESHOLD' : s.status === 'plateaued' ? ' ⚠️ PLATEAUED' : ' ✅'
+    return `  • ${s.assetType} — pass ${s.currentPass}${score}${flag}`
+  })
+  return '\n\nRevision Quality Report:\n' + lines.join('\n')
+}
 
 export async function runClickUpPublisher(runId: string) {
   await log(runId, 'DELIVERY', 'Publishing to ClickUp')
@@ -24,11 +34,14 @@ export async function runClickUpPublisher(runId: string) {
     ? reviews.reduce((s, r) => s + (r.score ?? 0), 0) / reviews.length
     : 0
 
+  const revisionStates = await db.select().from(assetRevisionState).where(eq(assetRevisionState.runId, runId))
+  const qualityNote = buildQualityNote(revisionStates)
+
   if (advertorial && funnelPage?.vercelUrl) {
     const task = await createAdvertorialTask({
       productName: product.name,
       advertorialUrl: funnelPage.vercelUrl,
-      copyDocContent: advertorial.content.slice(0, 5000),
+      copyDocContent: advertorial.content.slice(0, 5000) + qualityNote,
       avgPersonaScore: avgScore,
     })
     await db.insert(clickupDeliverables).values({
@@ -44,6 +57,7 @@ export async function runClickUpPublisher(runId: string) {
 
   for (const asset of [...staticAds, ...videoFinals]) {
     if (!asset.storageUrl) continue
+    const assetState = revisionStates.find((s) => s.assetId === asset.id)
     const task = await createCreativeTask({
       productName: product.name,
       assetType: asset.type === 'static_ad' ? 'Static Ad' : 'Video',

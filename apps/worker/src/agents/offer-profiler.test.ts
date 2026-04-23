@@ -3,6 +3,7 @@ import { runOfferProfiler } from './offer-profiler.js'
 
 vi.mock('../lib/anthropic.js', () => ({
   anthropic: {},
+  parseClaudeJson: vi.fn().mockImplementation((text: string) => JSON.parse(text)),
   callClaude: vi.fn().mockResolvedValue(JSON.stringify({
     offerAnalysis: { core_promise: 'Lose weight without surgery', mechanism: 'GLP-1 prescription' },
     avatar: { primaryAge: '40-55', gender: 'F', topDesire: 'feel healthy' },

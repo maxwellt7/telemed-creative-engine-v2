@@ -7,13 +7,15 @@ import { runAvatarAgent } from '../agents/avatar-agent.js'
 import { runCompetitorDiscover, runAdvertorialDiscover } from '../agents/research-agent.js'
 import { runAdvertorialFetch, runReverseEngineer } from '../agents/analyst-agent.js'
 import { runReverseBrief, runCopyConcepts } from '../agents/brief-writer.js'
+import { runAdvertorialDesign } from '../agents/advertorial-designer.js'
 import { runCopyChief } from '../agents/copy-chief.js'
 import { runCreativeDirection, runAdScripts } from '../agents/creative-director.js'
 import { runFunnelBuilder } from '../agents/funnel-builder.js'
 import { runImageAgent } from '../agents/image-agent.js'
 import { runVideoDraft, runVideoFinal } from '../agents/video-agent.js'
 import { runPersonaTest } from '../agents/persona-agents.js'
-import { runRevision, runQAFinal } from '../agents/qa-agent.js'
+import { runRevisionLoop } from '../agents/revision-loop.js'
+import { runQAFinal } from '../agents/qa-agent.js'
 import { runClickUpPublisher } from '../agents/clickup-publisher.js'
 
 export async function runPipeline(runId: string) {
@@ -38,28 +40,20 @@ export async function runPipeline(runId: string) {
     await runReverseEngineer(runId)           // Stage 7
     await runReverseBrief(runId)              // Stage 8
     await runCopyConcepts(runId)              // Stage 9
-    await runCopyChief(runId)                 // Stage 10
-    await runCreativeDirection(runId)         // Stage 11
-    await runAdScripts(runId)                 // Stage 12
-    await runFunnelBuilder(runId)             // Stage 13
-    await runImageAgent(runId)                // Stage 14
-    await runVideoDraft(runId)                // Stage 15
-    await runVideoFinal(runId)                // Stage 16
+    await runAdvertorialDesign(runId)         // Stage 10 NEW
+    await runCopyChief(runId)                 // Stage 11
+    await runCreativeDirection(runId)         // Stage 12
+    await runAdScripts(runId)                 // Stage 13
+    await runFunnelBuilder(runId)             // Stage 14
+    await runImageAgent(runId)                // Stage 15
+    await runVideoDraft(runId)                // Stage 16
+    await runVideoFinal(runId)                // Stage 17
 
-    await runPersonaTest(runId)               // Stage 17 — initial test
+    await runPersonaTest(runId)               // Stage 18 — initial review of all assets
+    await runRevisionLoop(runId)              // Stages 19–20 — per-asset iterative revision
 
-    let revisionPass = 0
-    let revised = true
-    while (revised && revisionPass < 3) {
-      revised = await runRevision(runId, revisionPass)  // Stage 18+19
-      if (revised) {
-        revisionPass++
-        await runPersonaTest(runId)           // Stage 17 — re-test after revision
-      }
-    }
-
-    await runQAFinal(runId)                   // Stage 20
-    await runClickUpPublisher(runId)          // Stage 21
+    await runQAFinal(runId)                   // Stage 21
+    await runClickUpPublisher(runId)          // Stage 22
 
   } catch (err) {
     const [failedRun] = await db.select().from(pipelineRuns).where(eq(pipelineRuns.id, runId)).catch(() => [null])
