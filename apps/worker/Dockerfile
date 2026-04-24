@@ -30,4 +30,4 @@ COPY --from=builder /app/packages/shared/node_modules /app/packages/shared/node_
 
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["sh", "-c", "node dist/db/migrate.js && node dist/index.js"]
+CMD ["sh", "-c", "node dist/db/migrate.js; node dist/index.js"]
