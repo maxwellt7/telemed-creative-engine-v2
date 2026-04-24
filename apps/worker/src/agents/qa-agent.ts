@@ -54,6 +54,7 @@ export async function evaluateAsset(runId: string, assetId: string, passNumber: 
   requiresRevision: boolean
   targetObjections: string[]
   targetSuggestedEdits: string[]
+  positiveSignals: string[]
 }> {
   const reviews = await db.select().from(personaReviews)
     .where(and(eq(personaReviews.runId, runId), eq(personaReviews.assetId, assetId)))
@@ -62,13 +63,16 @@ export async function evaluateAsset(runId: string, assetId: string, passNumber: 
 
   const scoreAvg = avg(source.map((r) => r.score ?? 0))
   const requiresRevision = scoreAvg < TARGET_THRESHOLD
-  const worst5 = [...source].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 5)
+  const sorted = [...source].sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
+  const worst5 = sorted.slice(0, 5)
+  const best5 = sorted.slice(-5)
 
   return {
     avgScore: scoreAvg,
     requiresRevision,
     targetObjections: worst5.map((r) => r.objection).filter(Boolean) as string[],
     targetSuggestedEdits: worst5.map((r) => r.suggestedEdit).filter(Boolean) as string[],
+    positiveSignals: best5.map((r) => r.suggestedEdit ?? r.objection).filter((s) => s && s !== 'N/A') as string[],
   }
 }
 
@@ -76,7 +80,7 @@ export async function reviseAsset(
   runId: string,
   assetId: string,
   assetType: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   switch (assetType) {
     case 'advertorial': return reviseAdvertorial(runId, assetId, feedback)
@@ -92,16 +96,19 @@ export async function reviseAsset(
 async function reviseAdvertorial(
   runId: string,
   assetId: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   const [asset] = await db.select().from(copyAssets).where(eq(copyAssets.id, assetId))
   if (!asset) throw new Error(`Advertorial asset ${assetId} not found`)
 
-  const revisionPrompt = `You are revising a telemedicine advertorial based on persona feedback.
-Preserve the overall structure, voice, and elements that scored well.
-Focus edits specifically on the objections listed.
+  const revisionPrompt = `You are making TARGETED edits to a telemedicine advertorial based on persona feedback.
 
-TOP OBJECTIONS:
+RULE: Make minimal, surgical changes. Only edit the specific sentences or paragraphs that cause the objections below. Do NOT restructure, reorder, or rewrite sections that aren't mentioned.
+
+WHAT'S ALREADY WORKING — preserve elements like these exactly:
+${feedback.positiveSignals.join('\n')}
+
+OBJECTIONS TO FIX (address each one with a targeted edit):
 ${feedback.objections.join('\n')}
 
 SUGGESTED FIXES:
@@ -110,7 +117,7 @@ ${feedback.suggestedEdits.join('\n')}
 ORIGINAL ADVERTORIAL:
 ${asset.content}
 
-Return the complete revised advertorial. If the original is HTML, return HTML. If markdown, return markdown.`
+Return the complete advertorial with only the targeted edits applied. Keep everything else identical. If the original is HTML, return HTML. If markdown, return markdown.`
 
   let revised: string
   if (isGeminiConfigured() && asset.content.trimStart().startsWith('<article')) {
@@ -150,20 +157,24 @@ Return the complete revised advertorial. If the original is HTML, return HTML. I
 async function reviseAdScripts(
   runId: string,
   assetId: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   const [asset] = await db.select().from(copyAssets).where(eq(copyAssets.id, assetId))
   if (!asset) throw new Error(`Ad script asset ${assetId} not found`)
 
   const revised = await callClaude(anthropic, {
     model: 'claude-sonnet-4-6',
-    system: `You are revising telemedicine ad scripts based on persona feedback.
+    system: `You are making targeted edits to telemedicine ad scripts based on persona feedback.
+RULE: Make minimal, surgical changes. Only fix the specific objections listed. Preserve what's already working.
 Return ONLY valid JSON — same array structure as the input scripts.`,
     messages: [{
       role: 'user',
-      content: `Revise these ad scripts to address the following objections.
+      content: `Make targeted edits to these ad scripts.
 
-TOP OBJECTIONS:
+WHAT'S ALREADY WORKING — preserve elements like these:
+${feedback.positiveSignals.join('\n')}
+
+OBJECTIONS TO FIX:
 ${feedback.objections.join('\n')}
 
 SUGGESTED FIXES:
@@ -172,7 +183,7 @@ ${feedback.suggestedEdits.join('\n')}
 ORIGINAL SCRIPTS:
 ${asset.content}
 
-Return the complete revised JSON array now.`,
+Return the complete JSON array with only targeted edits applied.`,
     }],
     maxTokens: 8192,
   })
@@ -189,7 +200,7 @@ Return the complete revised JSON array now.`,
 async function reviseStaticAd(
   runId: string,
   assetId: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   const [asset] = await db.select().from(creativeAssets).where(eq(creativeAssets.id, assetId))
   if (!asset) throw new Error(`Static ad asset ${assetId} not found`)
@@ -232,7 +243,7 @@ Improve the prompt to address these concerns while keeping it suitable for Flux 
 async function reviseVideoDraft(
   runId: string,
   assetId: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   await log(runId, 'REVISION', 'Video draft revision skipped — video regeneration requires premium Fal.ai tier', 'warn')
 }
@@ -240,7 +251,7 @@ async function reviseVideoDraft(
 async function reviseVideoFinal(
   runId: string,
   assetId: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   await log(runId, 'REVISION', 'Video final revision skipped — video regeneration requires premium Fal.ai tier', 'warn')
 }
@@ -248,15 +259,19 @@ async function reviseVideoFinal(
 async function reviseFunnelPage(
   runId: string,
   assetId: string,
-  feedback: { objections: string[]; suggestedEdits: string[] },
+  feedback: { objections: string[]; suggestedEdits: string[]; positiveSignals: string[] },
 ): Promise<void> {
   const [page] = await db.select().from(funnelPages).where(eq(funnelPages.runId, runId))
   if (!page) throw new Error(`Funnel page not found for run ${runId}`)
 
-  const revisionPrompt = `You are revising a telemedicine funnel page based on persona feedback.
-Keep the same overall structure. Address each objection specifically.
+  const revisionPrompt = `You are making TARGETED edits to a telemedicine funnel page based on persona feedback.
 
-TOP OBJECTIONS:
+RULE: Make minimal, surgical changes. Only edit the specific elements that cause the objections below. Do NOT restructure or rewrite sections that aren't mentioned.
+
+WHAT'S ALREADY WORKING — preserve elements like these exactly:
+${feedback.positiveSignals.join('\n')}
+
+OBJECTIONS TO FIX:
 ${feedback.objections.join('\n')}
 
 SUGGESTED FIXES:
@@ -265,7 +280,7 @@ ${feedback.suggestedEdits.join('\n')}
 ORIGINAL HTML:
 ${page.htmlContent.slice(0, 12000)}
 
-Return the complete revised HTML starting with <!DOCTYPE html>.`
+Return the complete HTML with only targeted edits applied. Keep everything else identical. Start with <!DOCTYPE html>.`
 
   let revised: string
   if (isGeminiConfigured()) {

@@ -78,7 +78,7 @@ async function loopUntilPassing(runId: string, asset: AssetRef): Promise<void> {
   let previousScore: number | null = null
 
   while (true) {
-    const { avgScore, requiresRevision, targetObjections, targetSuggestedEdits } =
+    const { avgScore, requiresRevision, targetObjections, targetSuggestedEdits, positiveSignals } =
       await evaluateAsset(runId, asset.assetId, pass)
 
     await upsertRevisionState(runId, asset, { currentPass: pass, lastAvgScore: avgScore })
@@ -113,6 +113,7 @@ async function loopUntilPassing(runId: string, asset: AssetRef): Promise<void> {
     await reviseAsset(runId, asset.assetId, asset.assetType, {
       objections: targetObjections,
       suggestedEdits: targetSuggestedEdits,
+      positiveSignals,
     })
 
     // Re-test just this asset at the new pass number
