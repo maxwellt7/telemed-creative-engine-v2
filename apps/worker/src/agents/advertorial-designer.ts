@@ -59,11 +59,14 @@ export async function runAdvertorialDesign(runId: string) {
     const planText = await callGeminiText({
       system: DESIGN_DIRECTOR_SYSTEM,
       prompt: `Offer analysis: ${JSON.stringify(profile?.offerAnalysisJson ?? {})}\n\nAvatar: ${JSON.stringify(profile?.avatarJson ?? {})}\n\nBrief: ${JSON.stringify(brief.briefJson)}\n\nPrimary concept: ${JSON.stringify(primary)}\n\nReturn the design plan JSON now.`,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
       temperature: 0.8,
     })
     const stripped = planText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
-    plan = JSON.parse(stripped) as DesignPlan
+    const jsonStart = stripped.indexOf('{')
+    const jsonEnd = stripped.lastIndexOf('}')
+    const jsonStr = jsonStart >= 0 && jsonEnd > jsonStart ? stripped.slice(jsonStart, jsonEnd + 1) : stripped
+    plan = JSON.parse(jsonStr) as DesignPlan
   } catch (err) {
     await log(runId, 'ADVERTORIAL_DESIGN', `Design plan failed (${(err as Error).message}) — skipping`, 'warn')
     await db.update(pipelineRuns).set({ currentStage: 'ADVERTORIAL_COPY' }).where(eq(pipelineRuns.id, runId))

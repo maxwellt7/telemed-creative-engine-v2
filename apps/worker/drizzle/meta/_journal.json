@@ -15,6 +15,13 @@
       "when": 1745366400000,
       "tag": "0001_advertorial_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1745452800000,
+      "tag": "0002_schema_repair",
+      "breakpoints": true
     }
   ]
 }
