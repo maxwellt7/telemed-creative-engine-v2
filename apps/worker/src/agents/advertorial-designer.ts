@@ -1,4 +1,5 @@
 import { callGeminiText, callGeminiImage, isGeminiConfigured } from '../lib/gemini.js'
+import { generateAdvertorialImage, isFalConfigured } from '../lib/fal.js'
 import { uploadImage } from '../lib/storage.js'
 import { db, offerProfiles, reverseBriefs, creativeAssets, advertorialDesigns, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
@@ -83,12 +84,23 @@ export async function runAdvertorialDesign(runId: string) {
 
   await Promise.all(imageSlots.map(async (p) => {
     try {
-      const { imageBase64, mimeType } = await callGeminiImage({
-        prompt: p.prompt,
-        aspectRatio: p.aspectRatio,
-      })
-      const ext = mimeType.split('/')[1] ?? 'jpg'
-      const url = await uploadImage(`run-${runId}/advertorial/${p.slot}.${ext}`, imageBase64, mimeType)
+      let url: string
+
+      if (isFalConfigured()) {
+        // Fal.ai flux/schnell — returns a CDN URL directly, no upload needed
+        url = await generateAdvertorialImage(p.prompt, p.aspectRatio)
+        await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Fal.ai: ${url}`)
+      } else {
+        // Gemini fallback — returns base64, must upload to Fal storage
+        const { imageBase64, mimeType } = await callGeminiImage({
+          prompt: p.prompt,
+          aspectRatio: p.aspectRatio,
+        })
+        const ext = mimeType.split('/')[1] ?? 'jpg'
+        url = await uploadImage(`run-${runId}/advertorial/${p.slot}.${ext}`, imageBase64, mimeType)
+        await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Gemini: ${url}`)
+      }
+
       await db.insert(creativeAssets).values({
         runId,
         type: 'advertorial_design',
@@ -97,7 +109,6 @@ export async function runAdvertorialDesign(runId: string) {
         status: 'ready',
       })
       results.push({ slot: p.slot, url, alt: p.alt, aspectRatio: p.aspectRatio, prompt: p.prompt })
-      await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} image: ${url}`)
     } catch (err) {
       await log(runId, 'ADVERTORIAL_DESIGN', `Image gen failed for ${p.slot} (${(err as Error).message}) — skipping slot`, 'warn')
     }
