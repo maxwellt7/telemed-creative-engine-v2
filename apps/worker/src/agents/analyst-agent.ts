@@ -25,19 +25,26 @@ export async function runAdvertorialFetch(runId: string) {
   await db.update(pipelineRuns).set({ currentStage: 'REVERSE_ENGINEER' }).where(eq(pipelineRuns.id, runId))
 }
 
-const REVERSE_ENGINEER_SYSTEM = `You are a direct-response copywriting analyst. Reverse engineer this advertorial line by line.
+const REVERSE_ENGINEER_SYSTEM = `You are a senior direct-response copywriting analyst. Perform a deep structural reverse-engineering of this health advertorial. Your analysis will be used to brief a copywriter writing a NEW advertorial for a DIFFERENT product in the same telemedicine category — so focus on transferable mechanics, not on product-specific content.
 
 Respond ONLY with valid JSON:
 {
-  "hookStructure": "string",
-  "beliefBridges": ["string"],
-  "ctaMechanics": "string",
-  "voice": "string",
-  "emotionalArc": ["string"],
-  "keyPhrases": ["string — phrases with highest conversion weight"],
-  "pacing": "string",
-  "socialProofTypes": ["string"],
-  "objectionHandling": ["string — implicit objections the copy addresses"]
+  "hookStructure": "string — exact formula used in the opening (e.g. fear+statistic, curiosity gap, named protagonist, bold claim)",
+  "hiddenTruthReframe": "string — the core belief the copy shatters and replaces (the 'it's not X — it's actually Y' pivot). What does the reader believe before reading, and what do they believe after?",
+  "protagonistStructure": "string — how the proxy character is introduced, what details make them relatable, how they're used throughout",
+  "authorityStack": ["string — each credibility layer in sequence: institution name, expert name+credential, specific data point, customer proof"],
+  "beliefBridges": ["string — each step in the logic chain that moves the reader from skeptic to buyer"],
+  "proofAvalanchePattern": "string — how testimonials/reviews are woven into narrative vs siloed (with specific placement relative to emotional peaks)",
+  "ctaMechanics": "string — exact placement triggers (after what emotional moment does each CTA appear), wording formula, guarantee proximity",
+  "urgencyArchitecture": "string — external scarcity tactic + internal (health cost of delay) tactic, and how they're combined",
+  "voice": "string — precise register: who is the narrator, what is their relationship to the reader, what tone signals authority without sounding clinical",
+  "emotionalArc": ["string — each emotional state in sequence the reader is moved through"],
+  "keyPhrases": ["string — 5-8 phrases with highest conversion weight, with brief note on why each works"],
+  "pacing": "string — paragraph length rhythm, how density alternates with visual relief",
+  "socialProofTypes": ["string — each proof type used and its placement"],
+  "objectionHandling": ["string — each implicit objection the copy pre-empts and how"],
+  "scarcityMechanics": "string — specific language used for urgency, whether it feels logical or manufactured",
+  "comparisonTactics": "string — how this product is implicitly or explicitly positioned against alternatives"
 }`
 
 export async function runReverseEngineer(runId: string) {
