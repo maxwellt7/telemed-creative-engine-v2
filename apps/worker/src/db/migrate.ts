@@ -10,68 +10,85 @@ const sql = postgres(process.env.DATABASE_URL!, { max: 1 })
 const db = drizzle(sql)
 
 const migrationsFolder = join(__dirname, '../../drizzle')
-await migrate(db, { migrationsFolder })
-console.log('[migrate] Drizzle migrations complete')
 
-// Safety block: ensure schema additions are always present regardless of
-// whether Drizzle's hash-based tracking skipped a migration file.
-// Uses sql.unsafe() for statements containing $$ to avoid postgres.js parsing them.
+console.log('[migrate] Starting Drizzle migrations from:', migrationsFolder)
 try {
-  await sql`ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "pass_number" integer NOT NULL DEFAULT 1`
-} catch { /* already exists */ }
+  await migrate(db, { migrationsFolder })
+  console.log('[migrate] Drizzle migrations complete')
+} catch (err) {
+  console.error('[migrate] Drizzle migrate() threw — continuing anyway:', err)
+}
 
-try {
-  await sql`ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now()`
-} catch { /* already exists */ }
+// Safety block: ensure schema additions are always present.
+// Each statement wrapped individually so one failure does not block the rest.
+const safetyStatements: Array<{ label: string; sql: string }> = [
+  {
+    label: 'persona_reviews.pass_number',
+    sql: `ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "pass_number" integer NOT NULL DEFAULT 1`,
+  },
+  {
+    label: 'persona_reviews.created_at',
+    sql: `ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now()`,
+  },
+  {
+    label: 'CREATE advertorial_designs',
+    sql: `CREATE TABLE IF NOT EXISTS "advertorial_designs" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "run_id" uuid NOT NULL,
+      "plan_json" jsonb NOT NULL,
+      "assets_json" jsonb NOT NULL,
+      "color_palette_json" jsonb,
+      "typography_pairing" text,
+      "created_at" timestamp DEFAULT now()
+    )`,
+  },
+  {
+    label: 'CREATE asset_revision_state',
+    sql: `CREATE TABLE IF NOT EXISTS "asset_revision_state" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "run_id" uuid NOT NULL,
+      "asset_id" uuid NOT NULL,
+      "asset_type" text NOT NULL,
+      "current_pass" integer NOT NULL DEFAULT 1,
+      "last_avg_score" real,
+      "status" text NOT NULL DEFAULT 'reviewing',
+      "passed_at" timestamp,
+      "history" jsonb NOT NULL DEFAULT '[]'::jsonb
+    )`,
+  },
+  {
+    label: 'FK advertorial_designs -> pipeline_runs',
+    sql: `DO $b$ BEGIN
+      ALTER TABLE "advertorial_designs" ADD CONSTRAINT "ad_designs_run_fk"
+        FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id");
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $b$`,
+  },
+  {
+    label: 'FK asset_revision_state -> pipeline_runs',
+    sql: `DO $b$ BEGIN
+      ALTER TABLE "asset_revision_state" ADD CONSTRAINT "asset_rev_run_fk"
+        FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id");
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $b$`,
+  },
+  {
+    label: 'UNIQUE advertorial_designs.run_id',
+    sql: `DO $b$ BEGIN
+      ALTER TABLE "advertorial_designs" ADD CONSTRAINT "ad_designs_run_id_unique" UNIQUE ("run_id");
+    EXCEPTION WHEN duplicate_object THEN null;
+    END $b$`,
+  },
+]
 
-await sql.unsafe(`
-  CREATE TABLE IF NOT EXISTS "advertorial_designs" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "run_id" uuid NOT NULL,
-    "plan_json" jsonb NOT NULL,
-    "assets_json" jsonb NOT NULL,
-    "color_palette_json" jsonb,
-    "typography_pairing" text,
-    "created_at" timestamp DEFAULT now()
-  )
-`)
-
-await sql.unsafe(`
-  CREATE TABLE IF NOT EXISTS "asset_revision_state" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "run_id" uuid NOT NULL,
-    "asset_id" uuid NOT NULL,
-    "asset_type" text NOT NULL,
-    "current_pass" integer NOT NULL DEFAULT 1,
-    "last_avg_score" real,
-    "status" text NOT NULL DEFAULT 'reviewing',
-    "passed_at" timestamp,
-    "history" jsonb NOT NULL DEFAULT '[]'::jsonb
-  )
-`)
-
-await sql.unsafe(`
-  DO $body$ BEGIN
-    ALTER TABLE "advertorial_designs" ADD CONSTRAINT "advertorial_designs_run_id_fk"
-      FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id");
-  EXCEPTION WHEN duplicate_object THEN null;
-  END $body$
-`)
-
-await sql.unsafe(`
-  DO $body$ BEGIN
-    ALTER TABLE "asset_revision_state" ADD CONSTRAINT "asset_revision_state_run_id_fk"
-      FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id");
-  EXCEPTION WHEN duplicate_object THEN null;
-  END $body$
-`)
-
-await sql.unsafe(`
-  DO $body$ BEGIN
-    ALTER TABLE "advertorial_designs" ADD CONSTRAINT "advertorial_designs_run_id_unique" UNIQUE ("run_id");
-  EXCEPTION WHEN duplicate_object THEN null;
-  END $body$
-`)
+for (const stmt of safetyStatements) {
+  try {
+    await sql.unsafe(stmt.sql)
+    console.log('[migrate] OK:', stmt.label)
+  } catch (err) {
+    console.error('[migrate] WARN:', stmt.label, '—', (err as Error).message)
+  }
+}
 
 console.log('[migrate] Schema safety block complete')
 await sql.end()
