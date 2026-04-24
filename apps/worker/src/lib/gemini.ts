@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL ?? 'gemini-2.5-pro'
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? 'imagen-3.0-generate-002'
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? 'gemini-2.0-flash-preview-image-generation'
 
 function getClient(): GoogleGenAI {
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set')
@@ -68,7 +68,7 @@ export async function callGeminiImage(
     model,
     contents: opts.prompt,
     config: {
-      responseModalities: ['IMAGE' as any],
+      responseModalities: ['TEXT', 'IMAGE'] as any,
     },
   })
   const part = (response as any).candidates?.[0]?.content?.parts?.find(
