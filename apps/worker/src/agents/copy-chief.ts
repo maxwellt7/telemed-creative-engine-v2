@@ -42,7 +42,14 @@ export async function runCopyChief(runId: string) {
   const concepts = (brief.conceptsJson as Array<{ concept: string; hook: string; angle: string; headline: string }>) ?? []
   const primary = concepts[0] ?? { concept: 'Primary Concept', hook: 'Opening hook', angle: 'Direct', headline: 'Headline' }
 
-  const [designRecord] = await db.select().from(advertorialDesigns).where(eq(advertorialDesigns.runId, runId))
+  // Defensive: advertorial_designs table may not exist on older DB schemas
+  let designRecord: any = null
+  try {
+    const [dr] = await db.select().from(advertorialDesigns).where(eq(advertorialDesigns.runId, runId))
+    designRecord = dr ?? null
+  } catch (err) {
+    await log(runId, 'ADVERTORIAL_COPY', `Could not query advertorial_designs: ${(err as Error).message} — continuing without design context`, 'warn')
+  }
   const designAssets = await db.select().from(creativeAssets)
     .where(and(eq(creativeAssets.runId, runId), eq(creativeAssets.type, 'advertorial_design')))
 

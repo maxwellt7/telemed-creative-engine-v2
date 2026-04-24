@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai'
 
 const GEMINI_TEXT_MODEL = process.env.GEMINI_TEXT_MODEL ?? 'gemini-2.5-pro'
+// Default to Gemini native image generation; Imagen 4 is available as 'imagen-4.0-generate-001'
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? 'gemini-2.0-flash-preview-image-generation'
 
 function getClient(): GoogleGenAI {
@@ -45,7 +46,8 @@ export async function callGeminiImage(
   const ai = getClient()
   const model = opts.model ?? GEMINI_IMAGE_MODEL
 
-  // Imagen 3 path
+  // Imagen path — for models like 'imagen-4.0-generate-001'
+  // Note: 'imagen-3.0-generate-002' is deprecated; use 'imagen-4.0-generate-001' or later
   if (model.includes('imagen')) {
     const response = await (ai.models as any).generateImages({
       model,
@@ -57,13 +59,13 @@ export async function callGeminiImage(
       },
     })
     const img = response?.generatedImages?.[0]?.image
-    if (!img?.imageBytes) throw new Error('No image bytes from Imagen response')
+    if (!img?.imageBytes) throw new Error(`No image bytes from Imagen response (model: ${model})`)
     const bytes = img.imageBytes
     const base64 = typeof bytes === 'string' ? bytes : Buffer.from(bytes).toString('base64')
     return { imageBase64: base64, mimeType: 'image/jpeg' }
   }
 
-  // Gemini native image output path
+  // Gemini native image output path (default)
   const response = await ai.models.generateContent({
     model,
     contents: opts.prompt,
@@ -74,7 +76,7 @@ export async function callGeminiImage(
   const part = (response as any).candidates?.[0]?.content?.parts?.find(
     (p: any) => p.inlineData?.mimeType?.startsWith('image/'),
   )
-  if (!part?.inlineData) throw new Error('No image part in Gemini response')
+  if (!part?.inlineData) throw new Error(`No image part in Gemini response (model: ${model})`)
   return {
     imageBase64: part.inlineData.data as string,
     mimeType: part.inlineData.mimeType as string,

@@ -42,8 +42,9 @@ No markdown fences. Return raw JSON only.`
 export async function runAdvertorialDesign(runId: string) {
   await log(runId, 'ADVERTORIAL_DESIGN', 'Planning advertorial visual design')
 
-  if (!isGeminiConfigured()) {
-    await log(runId, 'ADVERTORIAL_DESIGN', 'GEMINI_API_KEY not set — skipping design stage', 'warn')
+  // Need at least one image provider configured
+  if (!isGeminiConfigured() && !isFalConfigured()) {
+    await log(runId, 'ADVERTORIAL_DESIGN', 'No image provider configured (need GEMINI_API_KEY or FAL_KEY) — skipping design stage', 'warn')
     await db.update(pipelineRuns).set({ currentStage: 'ADVERTORIAL_COPY' }).where(eq(pipelineRuns.id, runId))
     return
   }
@@ -55,25 +56,33 @@ export async function runAdvertorialDesign(runId: string) {
   const concepts = (brief.conceptsJson as any[]) ?? []
   const primary = concepts[0] ?? {}
 
+  // Step 1: Generate the design plan via Gemini text (or skip if not configured)
   let plan: DesignPlan
-  try {
-    const planText = await callGeminiText({
-      system: DESIGN_DIRECTOR_SYSTEM,
-      prompt: `Offer analysis: ${JSON.stringify(profile?.offerAnalysisJson ?? {})}\n\nAvatar: ${JSON.stringify(profile?.avatarJson ?? {})}\n\nBrief: ${JSON.stringify(brief.briefJson)}\n\nPrimary concept: ${JSON.stringify(primary)}\n\nReturn the design plan JSON now.`,
-      maxOutputTokens: 4096,
-      temperature: 0.8,
-    })
-    const stripped = planText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
-    const jsonStart = stripped.indexOf('{')
-    const jsonEnd = stripped.lastIndexOf('}')
-    const jsonStr = jsonStart >= 0 && jsonEnd > jsonStart ? stripped.slice(jsonStart, jsonEnd + 1) : stripped
-    plan = JSON.parse(jsonStr) as DesignPlan
-  } catch (err) {
-    await log(runId, 'ADVERTORIAL_DESIGN', `Design plan failed (${(err as Error).message}) — skipping`, 'warn')
+  if (isGeminiConfigured()) {
+    try {
+      const planText = await callGeminiText({
+        system: DESIGN_DIRECTOR_SYSTEM,
+        prompt: `Offer analysis: ${JSON.stringify(profile?.offerAnalysisJson ?? {})}\n\nAvatar: ${JSON.stringify(profile?.avatarJson ?? {})}\n\nBrief: ${JSON.stringify(brief.briefJson)}\n\nPrimary concept: ${JSON.stringify(primary)}\n\nReturn the design plan JSON now.`,
+        maxOutputTokens: 4096,
+        temperature: 0.8,
+      })
+      const stripped = planText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
+      const jsonStart = stripped.indexOf('{')
+      const jsonEnd = stripped.lastIndexOf('}')
+      const jsonStr = jsonStart >= 0 && jsonEnd > jsonStart ? stripped.slice(jsonStart, jsonEnd + 1) : stripped
+      plan = JSON.parse(jsonStr) as DesignPlan
+    } catch (err) {
+      await log(runId, 'ADVERTORIAL_DESIGN', `Design plan failed (${(err as Error).message}) — skipping`, 'warn')
+      await db.update(pipelineRuns).set({ currentStage: 'ADVERTORIAL_COPY' }).where(eq(pipelineRuns.id, runId))
+      return
+    }
+  } else {
+    await log(runId, 'ADVERTORIAL_DESIGN', 'GEMINI_API_KEY not set — skipping design plan (Fal-only mode)', 'warn')
     await db.update(pipelineRuns).set({ currentStage: 'ADVERTORIAL_COPY' }).where(eq(pipelineRuns.id, runId))
     return
   }
 
+  // Step 2: Generate images for each slot — try Fal.ai first, fall back to Gemini
   const imageSlots = [
     { slot: 'hero', prompt: plan.heroPrompt, aspectRatio: '16:9' as const, alt: plan.heroAlt },
     ...(plan.sections ?? []).map((s) => ({ slot: s.slot, prompt: s.prompt, aspectRatio: s.aspectRatio, alt: s.alt })),
@@ -87,11 +96,23 @@ export async function runAdvertorialDesign(runId: string) {
       let url: string
 
       if (isFalConfigured()) {
-        // Fal.ai flux/schnell — returns a CDN URL directly, no upload needed
-        url = await generateAdvertorialImage(p.prompt, p.aspectRatio)
-        await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Fal.ai: ${url}`)
+        // Primary: Fal.ai flux/schnell — returns a CDN URL directly
+        try {
+          url = await generateAdvertorialImage(p.prompt, p.aspectRatio)
+          await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Fal.ai: ${url}`)
+        } catch (falErr) {
+          // Fal failed — try Gemini as fallback
+          await log(runId, 'ADVERTORIAL_DESIGN', `Fal.ai failed for ${p.slot} (${(falErr as Error).message}) — trying Gemini fallback`, 'warn')
+          const { imageBase64, mimeType } = await callGeminiImage({
+            prompt: p.prompt,
+            aspectRatio: p.aspectRatio,
+          })
+          const ext = mimeType.split('/')[1] ?? 'jpg'
+          url = await uploadImage(`run-${runId}/advertorial/${p.slot}.${ext}`, imageBase64, mimeType)
+          await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Gemini fallback: ${url}`)
+        }
       } else {
-        // Gemini fallback — returns base64, must upload to Fal storage
+        // Gemini-only path
         const { imageBase64, mimeType } = await callGeminiImage({
           prompt: p.prompt,
           aspectRatio: p.aspectRatio,
@@ -114,13 +135,20 @@ export async function runAdvertorialDesign(runId: string) {
     }
   }))
 
-  await db.insert(advertorialDesigns).values({
-    runId,
-    planJson: plan as any,
-    assetsJson: results as any,
-    colorPaletteJson: (plan.colorPalette ?? []) as any,
-    typographyPairing: plan.typographyPairing,
-  })
+  // Step 3: Store the design record — wrapped in try/catch so a DB issue doesn't crash the pipeline
+  try {
+    await db.insert(advertorialDesigns).values({
+      runId,
+      planJson: plan as any,
+      assetsJson: results as any,
+      colorPaletteJson: (plan.colorPalette ?? []) as any,
+      typographyPairing: plan.typographyPairing,
+    })
+  } catch (err) {
+    // If the advertorial_designs table doesn't exist or insert fails, log but don't crash
+    // The pipeline can continue — the copy chief will just work without design context
+    await log(runId, 'ADVERTORIAL_DESIGN', `Failed to save design record: ${(err as Error).message} — continuing without design context`, 'warn')
+  }
 
   await db.update(pipelineRuns).set({ currentStage: 'ADVERTORIAL_COPY' }).where(eq(pipelineRuns.id, runId))
   await log(runId, 'ADVERTORIAL_DESIGN', `Visual design complete — ${results.length}/${imageSlots.length} images generated`)
