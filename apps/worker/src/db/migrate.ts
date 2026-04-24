@@ -13,12 +13,18 @@ const migrationsFolder = join(__dirname, '../../drizzle')
 await migrate(db, { migrationsFolder })
 console.log('[migrate] Drizzle migrations complete')
 
-// Safety block: ensure schema additions that may not have applied via Drizzle
-// are always present regardless of migration state.
-await sql`ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "pass_number" integer NOT NULL DEFAULT 1`
-await sql`ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now()`
+// Safety block: ensure schema additions are always present regardless of
+// whether Drizzle's hash-based tracking skipped a migration file.
+// Uses sql.unsafe() for statements containing $$ to avoid postgres.js parsing them.
+try {
+  await sql`ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "pass_number" integer NOT NULL DEFAULT 1`
+} catch { /* already exists */ }
 
-await sql`
+try {
+  await sql`ALTER TABLE "persona_reviews" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now()`
+} catch { /* already exists */ }
+
+await sql.unsafe(`
   CREATE TABLE IF NOT EXISTS "advertorial_designs" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     "run_id" uuid NOT NULL,
@@ -28,8 +34,9 @@ await sql`
     "typography_pairing" text,
     "created_at" timestamp DEFAULT now()
   )
-`
-await sql`
+`)
+
+await sql.unsafe(`
   CREATE TABLE IF NOT EXISTS "asset_revision_state" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     "run_id" uuid NOT NULL,
@@ -41,31 +48,30 @@ await sql`
     "passed_at" timestamp,
     "history" jsonb NOT NULL DEFAULT '[]'::jsonb
   )
-`
+`)
 
-// FK constraints — idempotent via duplicate_object catch
-await sql`
-  DO $$ BEGIN
+await sql.unsafe(`
+  DO $body$ BEGIN
     ALTER TABLE "advertorial_designs" ADD CONSTRAINT "advertorial_designs_run_id_fk"
       FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id");
   EXCEPTION WHEN duplicate_object THEN null;
-  END $$
-`
-await sql`
-  DO $$ BEGIN
+  END $body$
+`)
+
+await sql.unsafe(`
+  DO $body$ BEGIN
     ALTER TABLE "asset_revision_state" ADD CONSTRAINT "asset_revision_state_run_id_fk"
       FOREIGN KEY ("run_id") REFERENCES "pipeline_runs"("id");
   EXCEPTION WHEN duplicate_object THEN null;
-  END $$
-`
+  END $body$
+`)
 
-// UNIQUE constraint on advertorial_designs.run_id
-await sql`
-  DO $$ BEGIN
+await sql.unsafe(`
+  DO $body$ BEGIN
     ALTER TABLE "advertorial_designs" ADD CONSTRAINT "advertorial_designs_run_id_unique" UNIQUE ("run_id");
   EXCEPTION WHEN duplicate_object THEN null;
-  END $$
-`
+  END $body$
+`)
 
 console.log('[migrate] Schema safety block complete')
 await sql.end()
