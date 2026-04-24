@@ -6,7 +6,7 @@ import { callGeminiText, isGeminiConfigured } from '../lib/gemini.js'
 import { generateStaticAd } from '../lib/fal.js'
 import { uploadImage } from '../lib/storage.js'
 
-export const TARGET_THRESHOLD = Number(process.env.TARGET_SCORE_THRESHOLD ?? 9.5)
+export const TARGET_THRESHOLD = Number(process.env.TARGET_SCORE_THRESHOLD ?? 7.5)
 export const FLOOR_THRESHOLD = Number(process.env.FLOOR_SCORE_THRESHOLD ?? 7.0)
 
 export interface AssetScoreSummary {

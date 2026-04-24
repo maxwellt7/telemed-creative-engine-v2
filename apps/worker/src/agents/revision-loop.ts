@@ -27,26 +27,11 @@ async function collectAssetsInScope(runId: string): Promise<AssetRef[]> {
     .limit(1)
   if (adScript) assets.push({ assetId: adScript.id, assetType: 'ad_script' })
 
-  const staticAds = await db.select().from(creativeAssets)
-    .where(and(eq(creativeAssets.runId, runId), eq(creativeAssets.type, 'static_ad')))
-  for (const ad of staticAds) {
-    assets.push({ assetId: ad.id, assetType: 'static_ad' })
-  }
-
-  const videoDrafts = await db.select().from(creativeAssets)
-    .where(and(eq(creativeAssets.runId, runId), eq(creativeAssets.type, 'video_draft')))
-  for (const v of videoDrafts) {
-    assets.push({ assetId: v.id, assetType: 'video_draft' })
-  }
-
-  const videoFinals = await db.select().from(creativeAssets)
-    .where(and(eq(creativeAssets.runId, runId), eq(creativeAssets.type, 'video_final')))
-  for (const v of videoFinals) {
-    assets.push({ assetId: v.id, assetType: 'video_final' })
-  }
-
   const [funnel] = await db.select().from(funnelPages).where(eq(funnelPages.runId, runId))
   if (funnel) assets.push({ assetId: funnel.id, assetType: 'funnel_page' })
+
+  // static_ad, video_draft, video_final are URL-only assets — text personas cannot evaluate images
+  // or video, so including them in the revision loop produces meaningless scores and wastes credits.
 
   return assets
 }

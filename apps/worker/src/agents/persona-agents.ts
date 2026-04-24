@@ -65,11 +65,8 @@ async function loadAllAssets(runId: string): Promise<Array<{ id: string; type: s
     .limit(1)
   if (adScript) assets.push({ id: adScript.id, type: 'ad_script', content: adScript.content })
 
-  const staticAds = await db.select().from(creativeAssets)
-    .where(and(eq(creativeAssets.runId, runId), eq(creativeAssets.type, 'static_ad')))
-  for (const ad of staticAds) {
-    if (ad.storageUrl) assets.push({ id: ad.id, type: 'static_ad', content: `Static ad (${ad.format}): ${ad.storageUrl}` })
-  }
+  const [funnel] = await db.select().from(funnelPages).where(eq(funnelPages.runId, runId))
+  if (funnel) assets.push({ id: funnel.id, type: 'funnel_page', content: funnel.htmlContent.slice(0, 5000) })
 
   return assets
 }
