@@ -1,6 +1,5 @@
-import { callGeminiText, callGeminiImage, isGeminiConfigured } from '../lib/gemini.js'
+import { callGeminiText, isGeminiConfigured } from '../lib/gemini.js'
 import { generateAdvertorialImage, isFalConfigured } from '../lib/fal.js'
-import { uploadImage } from '../lib/storage.js'
 import { db, offerProfiles, reverseBriefs, creativeAssets, advertorialDesigns, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and } from 'drizzle-orm'
@@ -95,32 +94,12 @@ export async function runAdvertorialDesign(runId: string) {
     try {
       let url: string
 
-      if (isFalConfigured()) {
-        // Primary: Fal.ai flux/schnell — returns a CDN URL directly
-        try {
-          url = await generateAdvertorialImage(p.prompt, p.aspectRatio)
-          await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Fal.ai: ${url}`)
-        } catch (falErr) {
-          // Fal failed — try Gemini as fallback
-          await log(runId, 'ADVERTORIAL_DESIGN', `Fal.ai failed for ${p.slot} (${(falErr as Error).message}) — trying Gemini fallback`, 'warn')
-          const { imageBase64, mimeType } = await callGeminiImage({
-            prompt: p.prompt,
-            aspectRatio: p.aspectRatio,
-          })
-          const ext = mimeType.split('/')[1] ?? 'jpg'
-          url = await uploadImage(`run-${runId}/advertorial/${p.slot}.${ext}`, imageBase64, mimeType)
-          await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Gemini fallback: ${url}`)
-        }
-      } else {
-        // Gemini-only path
-        const { imageBase64, mimeType } = await callGeminiImage({
-          prompt: p.prompt,
-          aspectRatio: p.aspectRatio,
-        })
-        const ext = mimeType.split('/')[1] ?? 'jpg'
-        url = await uploadImage(`run-${runId}/advertorial/${p.slot}.${ext}`, imageBase64, mimeType)
-        await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Gemini: ${url}`)
+      if (!isFalConfigured()) {
+        await log(runId, 'ADVERTORIAL_DESIGN', `FAL_KEY not set — skipping ${p.slot}`, 'warn')
+        return
       }
+      url = await generateAdvertorialImage(p.prompt, p.aspectRatio)
+      await log(runId, 'ADVERTORIAL_DESIGN', `Generated ${p.slot} via Fal.ai: ${url}`)
 
       await db.insert(creativeAssets).values({
         runId,

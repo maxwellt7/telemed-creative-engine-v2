@@ -20,8 +20,8 @@ export async function generateAdvertorialImage(
   const result = await fal.subscribe('fal-ai/flux/schnell', {
     input: { prompt, image_size: { width, height }, num_images: 1, output_format: 'jpeg' },
     logs: false,
-  }) as unknown as { images: { url: string }[] }
-  return result.images[0].url
+  }) as unknown as { data: { images: { url: string }[] } }
+  return result.data.images[0].url
 }
 
 export async function generateStaticAd(
@@ -37,24 +37,24 @@ export async function generateStaticAd(
   const result = await fal.subscribe('fal-ai/flux/schnell', {
     input: { prompt, image_size: { width, height }, num_images: 1, output_format: 'jpeg' },
     logs: false,
-  }) as unknown as { images: { url: string }[] }
-  return { imageUrl: result.images[0].url, format }
+  }) as unknown as { data: { images: { url: string }[] } }
+  return { imageUrl: result.data.images[0].url, format }
 }
 
 export async function generateVideoDraft(prompt: string, _audioUrl: string): Promise<string> {
   const result = await fal.subscribe('fal-ai/minimax/video-01-live', {
     input: { prompt, duration: 6 },
     logs: false,
-  }) as unknown as { video: { url: string } }
-  return result.video.url
+  }) as unknown as { data: { video: { url: string } } }
+  return result.data.video.url
 }
 
 export async function generateVideoFinal(prompt: string): Promise<string> {
   const result = await fal.subscribe('fal-ai/kling-video/v2/master/text-to-video', {
     input: { prompt, duration: '10', aspect_ratio: '9:16' },
     logs: false,
-  }) as unknown as { video: { url: string } }
-  return result.video.url
+  }) as unknown as { data: { video: { url: string } } }
+  return result.data.video.url
 }
 
 export async function generateVoiceover(script: string): Promise<string> {
@@ -65,6 +65,6 @@ export async function generateVoiceover(script: string): Promise<string> {
       output_format: 'mp3',
     },
     logs: false,
-  }) as unknown as { audio: { url: string } }
-  return result.audio.url
+  }) as unknown as { data: { audio: { url: string } } }
+  return result.data.audio.url
 }
