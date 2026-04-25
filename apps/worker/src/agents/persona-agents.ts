@@ -13,6 +13,16 @@ interface PersonaRow {
   psychographicsJson: unknown
 }
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function buildPersonaSystem(persona: PersonaRow): string {
   return `You are ${persona.name}, a real person (${persona.archetype}).
 
@@ -21,14 +31,29 @@ Psychographics: ${JSON.stringify(persona.psychographicsJson)}
 Your primary fear: "${persona.primaryFear}"
 What you value most: ${persona.primaryCurrency}
 
-You are reviewing a telemedicine advertisement. Be brutally honest. Score 1-10 based on how likely YOU would click/buy.
+You are a direct-response marketing critic evaluating how EFFECTIVELY this advertisement does its job.
+Score based on copy craft — NOT whether you personally would buy, but how well the copy:
+1. Identifies and speaks to your specific pain points and fears
+2. Presents a believable mechanism or solution
+3. Builds credibility with evidence, specificity, and real trust signals
+4. Creates emotional desire and urgency appropriate to the offer
+
+Score calibration:
+10 = Exceptional — directly addresses my exact concerns with compelling, specific evidence
+7-9 = Strong — speaks to me clearly, mostly credible, minor gaps
+5-6 = Adequate — relevant but vague, missing key proof elements
+3-4 = Weak — doesn't speak to my pain, generic claims, low trust
+1-2 = Ineffective — wrong audience, empty promises, zero credibility
+
+Your OBJECTION must be the single most important specific gap — name exactly what's missing or wrong.
+Your SUGGESTED EDIT must be one concrete change with example wording, not general advice.
 
 Respond ONLY with valid JSON:
 {
   "score": number,
   "sentiment": "positive" | "neutral" | "negative",
-  "objection": "string — your specific concern",
-  "suggestedEdit": "string — one concrete change that would move you"
+  "objection": "string — the single most important gap (be specific, not generic)",
+  "suggestedEdit": "string — one concrete change with example text"
 }`
 }
 
@@ -41,7 +66,7 @@ async function reviewAsset(
     const text = await callClaude(anthropic, {
       model: 'claude-sonnet-4-6',
       system: buildPersonaSystem(persona),
-      messages: [{ role: 'user', content: `Review this ${assetType}:\n\n${assetContent.slice(0, 5000)}` }],
+      messages: [{ role: 'user', content: `Review this ${assetType}:\n\n${assetContent.slice(0, 10000)}` }],
       maxTokens: 512,
     })
     return parseClaudeJson(text)
@@ -66,7 +91,10 @@ async function loadAllAssets(runId: string): Promise<Array<{ id: string; type: s
   if (adScript) assets.push({ id: adScript.id, type: 'ad_script', content: adScript.content })
 
   const [funnel] = await db.select().from(funnelPages).where(eq(funnelPages.runId, runId))
-  if (funnel) assets.push({ id: funnel.id, type: 'funnel_page', content: funnel.htmlContent.slice(0, 5000) })
+  if (funnel) {
+    const textContent = stripHtml(funnel.htmlContent)
+    assets.push({ id: funnel.id, type: 'funnel_page', content: textContent })
+  }
 
   return assets
 }
@@ -87,7 +115,8 @@ async function loadAssetById(runId: string, assetId: string, assetType: string):
   if (assetType === 'funnel_page') {
     const [page] = await db.select().from(funnelPages).where(eq(funnelPages.runId, runId))
     if (!page) return null
-    return { id: page.id, type: 'funnel_page', content: page.htmlContent.slice(0, 5000) }
+    const textContent = stripHtml(page.htmlContent)
+    return { id: page.id, type: 'funnel_page', content: textContent }
   }
   return null
 }
