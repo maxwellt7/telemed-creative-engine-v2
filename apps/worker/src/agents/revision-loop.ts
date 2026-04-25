@@ -5,7 +5,8 @@ import { evaluateAsset, reviseAsset, TARGET_THRESHOLD } from './qa-agent.js'
 import { runPersonaTestForAsset } from './persona-agents.js'
 
 const MAX_PASSES = Number(process.env.MAX_REVISION_PASSES ?? 8)
-const PLATEAU_EPSILON = Number(process.env.PLATEAU_EPSILON ?? 0.3)
+const PLATEAU_EPSILON = Number(process.env.PLATEAU_EPSILON ?? 0.1)
+const PLATEAU_STALLS_REQUIRED = Number(process.env.PLATEAU_STALLS_REQUIRED ?? 2)
 
 interface AssetRef {
   assetId: string
@@ -76,6 +77,9 @@ async function upsertRevisionState(
 async function loopUntilPassing(runId: string, asset: AssetRef): Promise<void> {
   let pass = 1
   let previousScore: number | null = null
+  let consecutiveStalls = 0
+  let bestScore = -1
+  let bestAssetId = asset.assetId
 
   while (true) {
     const { avgScore, requiresRevision, targetObjections, targetSuggestedEdits, positiveSignals } =
@@ -86,40 +90,60 @@ async function loopUntilPassing(runId: string, asset: AssetRef): Promise<void> {
     await log(runId, 'FEEDBACK_AGGREGATE',
       `[${asset.assetType}] pass ${pass}: avg ${avgScore.toFixed(2)}/10 (target ≥ ${TARGET_THRESHOLD})`)
 
+    if (avgScore > bestScore) {
+      bestScore = avgScore
+      bestAssetId = asset.assetId
+    }
+
     if (!requiresRevision) {
       await upsertRevisionState(runId, asset, { currentPass: pass, lastAvgScore: avgScore, status: 'passed' })
       await log(runId, 'REVISION', `[${asset.assetType}] passed at ${avgScore.toFixed(2)}/10 on pass ${pass}`)
       return
     }
 
-    if (previousScore !== null && avgScore - previousScore < PLATEAU_EPSILON) {
-      await upsertRevisionState(runId, asset, { currentPass: pass, lastAvgScore: avgScore, status: 'plateaued' })
+    if (previousScore !== null) {
+      if (avgScore - previousScore < PLATEAU_EPSILON) {
+        consecutiveStalls++
+      } else {
+        consecutiveStalls = 0
+      }
+    }
+
+    if (consecutiveStalls >= PLATEAU_STALLS_REQUIRED) {
+      await upsertRevisionState(runId, asset, { currentPass: pass, lastAvgScore: bestScore, status: 'plateaued' })
       await log(runId, 'REVISION',
-        `[${asset.assetType}] plateaued at ${avgScore.toFixed(2)}/10 (improvement < ${PLATEAU_EPSILON}) — stopping`, 'warn')
+        `[${asset.assetType}] plateaued at best ${bestScore.toFixed(2)}/10 after ${consecutiveStalls} stalls — stopping`, 'warn')
       return
     }
 
     if (pass >= MAX_PASSES) {
-      await upsertRevisionState(runId, asset, { currentPass: pass, lastAvgScore: avgScore, status: 'force_delivered' })
+      await upsertRevisionState(runId, asset, { currentPass: pass, lastAvgScore: bestScore, status: 'force_delivered' })
       await log(runId, 'REVISION',
-        `[${asset.assetType}] hit max ${MAX_PASSES} passes at ${avgScore.toFixed(2)}/10 — force-delivering`, 'warn')
+        `[${asset.assetType}] hit max ${MAX_PASSES} passes at ${bestScore.toFixed(2)}/10 — force-delivering`, 'warn')
       return
+    }
+
+    // On regression: revise from best version seen rather than the regressed one
+    const reviseFrom = (previousScore !== null && avgScore < previousScore - PLATEAU_EPSILON)
+      ? { ...asset, assetId: bestAssetId }
+      : asset
+    if (reviseFrom.assetId !== asset.assetId) {
+      await log(runId, 'REVISION',
+        `[${asset.assetType}] regression detected — revising from best version (${bestScore.toFixed(2)}/10)`, 'warn')
     }
 
     previousScore = avgScore
     pass++
     await log(runId, 'REVISION', `[${asset.assetType}] revising (pass ${pass}): ${targetObjections.length} objections`)
 
-    await reviseAsset(runId, asset.assetId, asset.assetType, {
+    await reviseAsset(runId, reviseFrom.assetId, asset.assetType, {
       objections: targetObjections,
       suggestedEdits: targetSuggestedEdits,
       positiveSignals,
     })
 
-    // Re-test just this asset at the new pass number
     const updatedAssetId = await getLatestAssetId(runId, asset.assetType, asset.assetId)
     await runPersonaTestForAsset(runId, updatedAssetId, asset.assetType, pass)
-    // Update assetId reference for next evaluate call
     asset = { ...asset, assetId: updatedAssetId }
   }
 }

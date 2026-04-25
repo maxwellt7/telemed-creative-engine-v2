@@ -64,14 +64,14 @@ export async function evaluateAsset(runId: string, assetId: string, passNumber: 
   const scoreAvg = avg(source.map((r) => r.score ?? 0))
   const requiresRevision = scoreAvg < TARGET_THRESHOLD
   const sorted = [...source].sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
-  const worst5 = sorted.slice(0, 5)
+  const worst3 = sorted.slice(0, 3)
   const best5 = sorted.slice(-5)
 
   return {
     avgScore: scoreAvg,
     requiresRevision,
-    targetObjections: worst5.map((r) => r.objection).filter(Boolean) as string[],
-    targetSuggestedEdits: worst5.map((r) => r.suggestedEdit).filter(Boolean) as string[],
+    targetObjections: worst3.map((r) => r.objection).filter(Boolean) as string[],
+    targetSuggestedEdits: worst3.map((r) => r.suggestedEdit).filter(Boolean) as string[],
     positiveSignals: best5.map((r) => r.suggestedEdit ?? r.objection).filter((s) => s && s !== 'N/A') as string[],
   }
 }
