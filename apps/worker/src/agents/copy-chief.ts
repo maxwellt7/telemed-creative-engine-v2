@@ -1,6 +1,6 @@
 import { callGeminiText, isGeminiConfigured } from '../lib/gemini.js'
 import { anthropic, callClaude } from '../lib/anthropic.js'
-import { db, reverseBriefs, copyAssets, creativeAssets, advertorialDesigns, pipelineRuns } from '../db/index.js'
+import { db, reverseBriefs, copyAssets, creativeAssets, advertorialDesigns, offerProfiles, pipelineRuns } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and } from 'drizzle-orm'
 
@@ -39,8 +39,43 @@ export async function runCopyChief(runId: string) {
   const [brief] = await db.select().from(reverseBriefs).where(eq(reverseBriefs.runId, runId))
   if (!brief) throw new Error(`No reverse brief for run ${runId}`)
 
+  const [profile] = await db.select().from(offerProfiles).where(eq(offerProfiles.runId, runId))
+
   const concepts = (brief.conceptsJson as Array<{ concept: string; hook: string; angle: string; headline: string }>) ?? []
   const primary = concepts[0] ?? { concept: 'Primary Concept', hook: 'Opening hook', angle: 'Direct', headline: 'Headline' }
+
+  // Find the avatar that matches the primary concept's target persona
+  const allAvatars = (profile?.avatarJson as Array<{
+    personaName: string; specificConcern: string; primaryObjection: string
+    keyMessage: string; emotionalTrigger: string; trustBuilder: string
+  }>) ?? []
+  const targetAvatar = allAvatars.find((a) =>
+    a.personaName?.toLowerCase().includes(((primary as any).targetPersona ?? '').toLowerCase().split(' ')[0])
+  ) ?? allAvatars[0] ?? {}
+
+  const offerContext = profile ? `
+## OFFER DETAILS — ground every specific claim in these facts
+Core Promise: ${(profile.offerAnalysisJson as any)?.core_promise ?? ''}
+Mechanism (the unique HOW): ${(profile.offerAnalysisJson as any)?.mechanism ?? ''}
+Proof Elements: ${((profile.offerAnalysisJson as any)?.proof_elements ?? []).join(' | ')}
+Price Anchor: ${(profile.offerAnalysisJson as any)?.price_anchor ?? ''}
+Urgency Levers: ${((profile.offerAnalysisJson as any)?.urgency_levers ?? []).join(' | ')}
+
+## TARGET AVATAR — write every sentence directly to this person
+Top Desire: ${(profile.avatarJson as any)?.topDesire ?? ''}
+Top Frustration: ${(profile.avatarJson as any)?.topFrustration ?? ''}
+Previous Solutions Already Tried: ${((profile.avatarJson as any)?.previousSolutions ?? []).join(', ')}
+
+## AVATAR PSYCHOLOGY FOR THIS SPECIFIC OFFER
+Specific Concern About This Product: ${targetAvatar.specificConcern ?? ''}
+Primary Objection to Pre-empt: ${targetAvatar.primaryObjection ?? ''}
+Key Message That Moves Them: ${targetAvatar.keyMessage ?? ''}
+Emotional Trigger: ${targetAvatar.emotionalTrigger ?? ''}
+What Would Make Them Trust This: ${targetAvatar.trustBuilder ?? ''}
+
+## CORE BELIEFS TO ADDRESS IN COPY
+${((profile.beliefsJson as string[]) ?? []).map((b: string, i: number) => `${i + 1}. ${b}`).join('\n')}
+` : ''
 
   // Defensive: advertorial_designs table may not exist on older DB schemas
   let designRecord: any = null
@@ -64,7 +99,7 @@ export async function runCopyChief(runId: string) {
     : ''
 
   const userPrompt = `Write a 2000–3000 word direct-response advertorial for a telemedicine GLP-1 weight loss program.
-
+${offerContext}
 ## CONCEPT TO EXECUTE
 Concept: ${primary.concept}
 Hidden Truth Reframe: ${(primary as any).hiddenTruthReframe ?? primary.hook}
