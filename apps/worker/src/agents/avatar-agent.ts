@@ -23,7 +23,8 @@ Respond ONLY with valid JSON: an array of 15 objects, each with:
     "NEVER say [X] to this persona because [reason in 8 words max]",
     "NEVER say [X] to this persona because [reason in 8 words max]"
   ]
-}`
+}
+`
 
 export async function runAvatarAgent(runId: string) {
   await log(runId, 'AVATAR_BUILD', 'Building persona avatars')
