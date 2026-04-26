@@ -28,6 +28,7 @@ vi.mock('../db/index', () => {
   const funnelPages = Symbol('funnelPages')
   const personaReviews = Symbol('personaReviews')
   const pipelineRuns = Symbol('pipelineRuns')
+  const offerProfiles = Symbol('offerProfiles')
 
   return {
     db: {
@@ -57,6 +58,7 @@ vi.mock('../db/index', () => {
     funnelPages,
     personaReviews,
     pipelineRuns,
+    offerProfiles,
   }
 })
 

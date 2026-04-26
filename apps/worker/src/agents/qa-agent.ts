@@ -72,7 +72,8 @@ export async function evaluateAsset(runId: string, assetId: string, passNumber: 
     requiresRevision,
     targetObjections: worst3.map((r) => r.objection).filter(Boolean) as string[],
     targetSuggestedEdits: worst3.map((r) => r.suggestedEdit).filter(Boolean) as string[],
-    positiveSignals: best5.map((r) => r.suggestedEdit ?? r.objection).filter((s) => s && s !== 'N/A') as string[],
+    // positiveSignals: what the best-scoring reviewers said already works — used to tell the reviser what to preserve
+    positiveSignals: best5.map((r) => (r as any).whatWorked ?? r.objection).filter((s: string) => s && s !== 'N/A' && s !== 'Review failed') as string[],
   }
 }
 

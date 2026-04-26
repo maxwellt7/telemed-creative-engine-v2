@@ -1,5 +1,5 @@
 import { anthropic, callClaude, parseClaudeJson } from '../lib/anthropic.js'
-import { db, personas, copyAssets, creativeAssets, funnelPages, personaReviews, pipelineRuns } from '../db/index.js'
+import { db, personas, copyAssets, creativeAssets, funnelPages, personaReviews, pipelineRuns, offerProfiles } from '../db/index.js'
 import { log } from '../pipeline/logger.js'
 import { eq, and, desc } from 'drizzle-orm'
 
@@ -23,14 +23,14 @@ function stripHtml(html: string): string {
     .trim()
 }
 
-function buildPersonaSystem(persona: PersonaRow): string {
+function buildPersonaSystem(persona: PersonaRow, manifoldContext?: string): string {
   return `You are ${persona.name}, a real person (${persona.archetype}).
 
 Demographics: ${JSON.stringify(persona.demographicsJson)}
 Psychographics: ${JSON.stringify(persona.psychographicsJson)}
 Your primary fear: "${persona.primaryFear}"
 What you value most: ${persona.primaryCurrency}
-
+${manifoldContext ?? ''}
 You are a direct-response marketing critic evaluating how EFFECTIVELY this advertisement does its job.
 Score based on copy craft — NOT whether you personally would buy, but how well the copy:
 1. Identifies and speaks to your specific pain points and fears
@@ -47,31 +47,35 @@ Score calibration:
 
 Your OBJECTION must be the single most important specific gap — name exactly what's missing or wrong.
 Your SUGGESTED EDIT must be one concrete change with example wording, not general advice.
+Your WHAT WORKED must name the single strongest element the copy already does well (be specific).
 
 Respond ONLY with valid JSON:
 {
   "score": number,
   "sentiment": "positive" | "neutral" | "negative",
   "objection": "string — the single most important gap (be specific, not generic)",
-  "suggestedEdit": "string — one concrete change with example text"
+  "suggestedEdit": "string — one concrete change with example text",
+  "whatWorked": "string — the single strongest element already working well"
 }`
 }
 
 async function reviewAsset(
   persona: PersonaRow,
   assetContent: string,
-  assetType: string
-): Promise<{ score: number; sentiment: string; objection: string; suggestedEdit: string }> {
+  assetType: string,
+  manifoldContext?: string,
+): Promise<{ score: number; sentiment: string; objection: string; suggestedEdit: string; whatWorked: string }> {
   try {
     const text = await callClaude(anthropic, {
       model: 'claude-sonnet-4-6',
-      system: buildPersonaSystem(persona),
-      messages: [{ role: 'user', content: `Review this ${assetType}:\n\n${assetContent.slice(0, 10000)}` }],
+      system: buildPersonaSystem(persona, manifoldContext),
+      messages: [{ role: 'user', content: `Review this ${assetType}:\n\n${assetContent.slice(0, 25000)}` }],
       maxTokens: 512,
     })
-    return parseClaudeJson(text)
+    const parsed = parseClaudeJson(text)
+    return { whatWorked: '', ...parsed }
   } catch {
-    return { score: 5, sentiment: 'neutral', objection: 'Review failed', suggestedEdit: 'N/A' }
+    return { score: 5, sentiment: 'neutral', objection: 'Review failed', suggestedEdit: 'N/A', whatWorked: '' }
   }
 }
 
@@ -121,11 +125,30 @@ async function loadAssetById(runId: string, assetId: string, assetType: string):
   return null
 }
 
+function buildManifoldContext(manifoldDeep: any): string {
+  if (!manifoldDeep) return ''
+  const triggers = (manifoldDeep.ejectionTriggers ?? []).slice(0, 5)
+    .map((t: any) => `- NEVER: "${t.trigger}" — ${t.whyItEjects}`)
+    .join('\n')
+  const resonant = (manifoldDeep.languagePatterns?.exactPhrases ?? []).slice(0, 4).join(' | ')
+  const avoid = (manifoldDeep.languagePatterns?.wordsToAvoid ?? []).slice(0, 6).join(', ')
+  return `
+## PRODUCT-SPECIFIC CALIBRATION (use these to score accurately)
+EJECTION TRIGGERS — penalize heavily if the copy does any of these:
+${triggers}
+RESONANT LANGUAGE — reward copy that uses phrases like: ${resonant}
+WORDS THAT LOSE THIS AUDIENCE — penalize if you see: ${avoid}
+`
+}
+
 export async function runPersonaTest(runId: string) {
   await log(runId, 'PERSONA_TEST', 'Running 15-persona review panel')
 
   const allPersonas = await db.select().from(personas)
   if (allPersonas.length === 0) throw new Error('No personas seeded — run seed-personas.ts first')
+
+  const [profile] = await db.select().from(offerProfiles).where(eq(offerProfiles.runId, runId))
+  const manifoldContext = buildManifoldContext(profile?.manifoldDeepJson as any)
 
   const assets = await loadAllAssets(runId)
   let totalReviews = 0
@@ -133,7 +156,7 @@ export async function runPersonaTest(runId: string) {
   for (const asset of assets) {
     const reviews = await Promise.all(
       allPersonas.map(async (persona) => {
-        const result = await reviewAsset(persona, asset.content, asset.type)
+        const result = await reviewAsset(persona, asset.content, asset.type, manifoldContext)
         return {
           runId,
           personaId: persona.id,
@@ -161,6 +184,9 @@ export async function runPersonaTestForAsset(runId: string, assetId: string, ass
   const allPersonas = await db.select().from(personas)
   if (allPersonas.length === 0) throw new Error('No personas seeded')
 
+  const [profile] = await db.select().from(offerProfiles).where(eq(offerProfiles.runId, runId))
+  const manifoldContext = buildManifoldContext(profile?.manifoldDeepJson as any)
+
   const asset = await loadAssetById(runId, assetId, assetType)
   if (!asset) {
     await log(runId, 'PERSONA_TEST', `Asset ${assetId} not found for re-review — skipping`, 'warn')
@@ -169,7 +195,7 @@ export async function runPersonaTestForAsset(runId: string, assetId: string, ass
 
   const reviews = await Promise.all(
     allPersonas.map(async (persona) => {
-      const result = await reviewAsset(persona, asset.content, asset.type)
+      const result = await reviewAsset(persona, asset.content, asset.type, manifoldContext)
       return {
         runId,
         personaId: persona.id,
