@@ -31,7 +31,28 @@ const DR_ADVERTORIAL_SYSTEM = `You are the world's best direct-response copywrit
 ## OUTPUT FORMAT
 - If image URLs are provided: output HTML starting with <article>. Use <img> tags at natural visual breaks. Use <strong> for inline bolding.
 - If no images: output clean markdown starting with the H1 headline.
-- No meta-commentary. No "Here is your advertorial." No placeholders. Start directly with the content.`
+- No meta-commentary. No "Here is your advertorial." No placeholders. Start directly with the content.
+
+## VOICE RULES — NON-NEGOTIABLE
+
+DO:
+- Write contractions (don't, can't, won't, isn't — always)
+- Use "..." for natural pauses and trailing thoughts
+- Start sentences with And, But, So when it flows naturally
+- Short sentences. Short paragraphs. 1-4 sentences max per paragraph
+- Specific numbers, names, timeframes — never vague
+- Questions that make the reader answer in their head
+
+DO NOT write these words (instant credibility killer):
+- "delve", "unlock", "landscape", "robust", "leverage", "dive deep"
+- "elevate", "game-changer", "journey", "seamless", "cutting-edge"
+- "revolutionary", "transformative", "holistic", "innovative"
+- Any phrase that sounds like it was written by a committee
+
+## BELIEF BRIDGE RULE
+The first 75% of the advertorial must BUILD BELIEF before the offer appears.
+Sequence: establish the problem is real → establish the mechanism is real → establish transformation is possible for someone like them → THEN present the offer.
+Never front-load the product. Earn the right to sell.`
 
 export async function runCopyChief(runId: string) {
   await log(runId, 'ADVERTORIAL_COPY', 'Writing full advertorial')
@@ -40,6 +61,8 @@ export async function runCopyChief(runId: string) {
   if (!brief) throw new Error(`No reverse brief for run ${runId}`)
 
   const [profile] = await db.select().from(offerProfiles).where(eq(offerProfiles.runId, runId))
+
+  const manifoldDeep = profile?.manifoldDeepJson as any
 
   const concepts = (brief.conceptsJson as Array<{ concept: string; hook: string; angle: string; headline: string }>) ?? []
   const primary = concepts[0] ?? { concept: 'Primary Concept', hook: 'Opening hook', angle: 'Direct', headline: 'Headline' }
@@ -77,6 +100,24 @@ What Would Make Them Trust This: ${targetAvatar.trustBuilder ?? ''}
 ${((profile.beliefsJson as string[]) ?? []).map((b: string, i: number) => `${i + 1}. ${b}`).join('\n')}
 ` : ''
 
+  const manifoldContext = manifoldDeep ? `
+## CORE WOUND — write to THIS psychological reality
+${((manifoldDeep.coreWound?.coreWound as string) ?? '').slice(0, 400)}
+Core wound one-liner: ${manifoldDeep.coreWound?.coreWoundOneLiner ?? ''}
+Identity under threat: ${manifoldDeep.coreWound?.identityThreat ?? ''}
+
+## EXACT LANGUAGE THAT RESONATES — use these phrases verbatim where natural
+Exact phrases they say: ${(manifoldDeep.languagePatterns?.exactPhrases ?? []).slice(0, 6).join(' | ')}
+Pain language: ${(manifoldDeep.languagePatterns?.painLanguage ?? []).join(' | ')}
+Transformation language: ${(manifoldDeep.languagePatterns?.transformationLanguage ?? []).join(' | ')}
+
+## NEVER SAY THESE THINGS (ejection triggers — instant loss of trust)
+${(manifoldDeep.ejectionTriggers ?? []).slice(0, 6).map((t: any) => `- NEVER: "${t.trigger}" — ${t.whyItEjects}`).join('\n')}
+
+## BELIEF DISSOLUTION (how to install necessary beliefs)
+${(manifoldDeep.dissolutions ?? []).map((d: any) => `[${d.category}] Blocking belief: "${d.blockingBelief}" → Epiphany seed: "${d.epiphanySeed}"`).join('\n')}
+` : ''
+
   // Defensive: advertorial_designs table may not exist on older DB schemas
   let designRecord: any = null
   try {
@@ -100,6 +141,7 @@ ${((profile.beliefsJson as string[]) ?? []).map((b: string, i: number) => `${i +
 
   const userPrompt = `Write a 2000–3000 word direct-response advertorial for a telemedicine GLP-1 weight loss program.
 ${offerContext}
+${manifoldContext}
 ## CONCEPT TO EXECUTE
 Concept: ${primary.concept}
 Hidden Truth Reframe: ${(primary as any).hiddenTruthReframe ?? primary.hook}

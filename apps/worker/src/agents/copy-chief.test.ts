@@ -21,6 +21,7 @@ vi.mock('../db/index.js', () => ({
             briefJson: { copywriterBrief: 'Match empathetic voice' },
             conceptsJson: [{ concept: 'The Real Diagnosis', hook: 'Most people never know...', angle: 'insight', headline: 'What Your Doctor Never Told You' }],
             sourceUrl: 'https://example.com',
+            manifoldDeepJson: null,
           }]).then(fn),
           catch: (fn: any) => Promise.resolve([]).catch(fn),
         }),
