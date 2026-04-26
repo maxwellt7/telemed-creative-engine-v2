@@ -12,7 +12,17 @@ Respond ONLY with valid JSON: an array of 15 objects, each with:
   "primaryObjection": "string — top reason NOT to buy",
   "keyMessage": "string — the single message that would most move them",
   "emotionalTrigger": "string",
-  "trustBuilder": "string — what would make them trust this product"
+  "trustBuilder": "string — what would make them trust this product",
+  "languagePatterns": {
+    "phrases": ["string x3 — exact phrases this persona says about the problem"],
+    "emotionalWords": ["string x3 — words that make them feel understood"],
+    "avoidWords": ["string x3 — corporate/clinical words that lose them instantly"]
+  },
+  "ejectionTriggers": [
+    "NEVER say [X] to this persona because [reason in 8 words max]",
+    "NEVER say [X] to this persona because [reason in 8 words max]",
+    "NEVER say [X] to this persona because [reason in 8 words max]"
+  ]
 }`
 
 export async function runAvatarAgent(runId: string) {
