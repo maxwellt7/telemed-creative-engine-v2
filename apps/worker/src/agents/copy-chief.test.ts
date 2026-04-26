@@ -33,6 +33,7 @@ vi.mock('../db/index.js', () => ({
   copyAssets: {},
   creativeAssets: {},
   advertorialDesigns: {},
+  offerProfiles: {},
   pipelineRuns: {},
 }))
 

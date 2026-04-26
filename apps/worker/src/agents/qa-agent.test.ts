@@ -32,8 +32,8 @@ vi.mock('../lib/fal.js', () => ({ generateStaticAd: vi.fn() }))
 vi.mock('../lib/storage.js', () => ({ uploadImage: vi.fn() }))
 
 describe('qa-agent', () => {
-  it('TARGET_THRESHOLD is 9.5 by default', () => {
-    expect(TARGET_THRESHOLD).toBe(9.5)
+  it('TARGET_THRESHOLD is 7.5 by default', () => {
+    expect(TARGET_THRESHOLD).toBe(7.5)
   })
 
   it('exports computeScoreSummaries, evaluateAsset, runQAFinal', () => {
