@@ -41,7 +41,12 @@ vi.mock('../db/index.js', () => ({
 
 vi.mock('../lib/anthropic.js', () => ({
   anthropic: {},
-  callClaude: vi.fn().mockResolvedValue('{"coreWound":"deep shame","coreWoundOneLiner":"test","identityThreat":"test"}'),
+  callClaude: vi.fn()
+    .mockResolvedValueOnce('{"coreWound":"deep shame","coreWoundOneLiner":"test","identityThreat":"test"}')
+    .mockResolvedValueOnce('{"exactPhrases":["phrase1"],"painLanguage":["pain1"],"transformationLanguage":["trans1"],"wordsToAvoid":["avoid1"]}')
+    .mockResolvedValueOnce('{"triggers":[{"trigger":"never say this","whyItEjects":"reason","doInstead":"say that"}]}')
+    .mockResolvedValueOnce('{"dissolutions":[{"category":"outcome","blockingBelief":"test","reframe":"test","evidence":"test","newStory":"test","epiphanySeed":"test"}]}')
+    .mockResolvedValueOnce('{"hooks":[{"hook":"opener","openerType":"secret","whyItWorks":"creates gap"}]}'),
   parseClaudeJson: vi.fn((s: string) => JSON.parse(s)),
 }))
 
@@ -58,5 +63,10 @@ describe('manifold-agent', () => {
 
     expect(callClaude).toHaveBeenCalledTimes(5)
     expect(db.update).toHaveBeenCalled()
+
+    const updateCall = (db.update as ReturnType<typeof vi.fn>).mock.results[0].value.set.mock.calls[0][0]
+    expect(Array.isArray(updateCall.manifoldDeepJson.ejectionTriggers)).toBe(true)
+    expect(Array.isArray(updateCall.manifoldDeepJson.dissolutions)).toBe(true)
+    expect(Array.isArray(updateCall.manifoldDeepJson.hooks)).toBe(true)
   })
 })

@@ -10,6 +10,7 @@ export async function runManifoldAgent(runId: string) {
   if (!profile) throw new Error(`No offer profile for run ${runId}`)
 
   const offer = profile.offerAnalysisJson as any
+  if (!offer) throw new Error(`No offer analysis JSON for run ${runId} — run offer profiler first`)
   const avatars = (profile.avatarJson as any[]) ?? []
   const primaryAvatar = avatars[0] ?? {}
   const beliefs = profile.beliefsJson as string[]
@@ -69,9 +70,9 @@ export async function runManifoldAgent(runId: string) {
   const manifoldDeep = {
     coreWound: node1,
     languagePatterns: node2,
-    ejectionTriggers: node3,
-    dissolutions: node4,
-    hooks: node5,
+    ejectionTriggers: node3.triggers ?? [],
+    dissolutions: node4.dissolutions ?? [],
+    hooks: node5.hooks ?? [],
   }
 
   await db.update(offerProfiles)
