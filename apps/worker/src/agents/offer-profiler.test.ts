@@ -74,5 +74,11 @@ describe('offer-profiler', () => {
     })
     expect(callClaude).toHaveBeenCalled()
     expect(db.insert).toHaveBeenCalled()
+
+    const valuesMock = (db.insert as ReturnType<typeof vi.fn>).mock.results[0].value.values
+    const insertedRow = (valuesMock as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(insertedRow.manifoldJson).toHaveProperty('topFear', 'failure again')
+    expect(insertedRow.manifoldJson).toHaveProperty('beliefCategories')
+    expect(insertedRow.manifoldJson.beliefCategories).toHaveProperty('outcome')
   })
 })

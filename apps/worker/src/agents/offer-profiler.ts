@@ -93,6 +93,10 @@ export async function runOfferProfiler(runId: string, product: ProductInput) {
 
   const parsed = parseClaudeJson(text)
 
+  if (!parsed?.offerAnalysis || !parsed?.avatar || !parsed?.launchDoc) {
+    throw new Error(`OFFER_PROFILE: Claude response missing required keys. Got: ${Object.keys(parsed ?? {})}`)
+  }
+
   await db.insert(offerProfiles).values({
     runId,
     offerAnalysisJson: parsed.offerAnalysis,
