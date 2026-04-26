@@ -16,10 +16,12 @@ vi.mock('../db/index', () => ({
   },
   pipelineRuns: {},
   products: {},
+  offerProfiles: {},
 }))
 
 vi.mock('../agents/offer-profiler', () => ({ runOfferProfiler: vi.fn() }))
 vi.mock('../agents/avatar-agent', () => ({ runAvatarAgent: vi.fn() }))
+vi.mock('../agents/manifold-agent', () => ({ runManifoldAgent: vi.fn() }))
 vi.mock('../agents/research-agent', () => ({ runCompetitorDiscover: vi.fn(), runAdvertorialDiscover: vi.fn() }))
 vi.mock('../agents/analyst-agent', () => ({ runAdvertorialFetch: vi.fn(), runReverseEngineer: vi.fn() }))
 vi.mock('../agents/brief-writer', () => ({ runReverseBrief: vi.fn(), runCopyConcepts: vi.fn() }))

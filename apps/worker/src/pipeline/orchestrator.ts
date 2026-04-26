@@ -4,6 +4,7 @@ import type { PipelineStage } from '@telemed/shared'
 import { log } from './logger.js'
 import { runOfferProfiler } from '../agents/offer-profiler.js'
 import { runAvatarAgent } from '../agents/avatar-agent.js'
+import { runManifoldAgent } from '../agents/manifold-agent.js'
 import { runCompetitorDiscover, runAdvertorialDiscover } from '../agents/research-agent.js'
 import { runAdvertorialFetch, runReverseEngineer } from '../agents/analyst-agent.js'
 import { runReverseBrief, runCopyConcepts } from '../agents/brief-writer.js'
@@ -34,6 +35,7 @@ export async function runPipeline(runId: string) {
 
     await runOfferProfiler(runId, p)          // Stage 2
     await runAvatarAgent(runId)               // Stage 3
+    await runManifoldAgent(runId)             // Stage 3b
     await runCompetitorDiscover(runId, p)     // Stage 4
     await runAdvertorialDiscover(runId, p)    // Stage 5
     await runAdvertorialFetch(runId)          // Stage 6
