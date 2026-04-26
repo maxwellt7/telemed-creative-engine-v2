@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { jsonrepair } from 'jsonrepair'
 
 export function createAnthropicClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -17,7 +18,11 @@ export interface CallClaudeOptions {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseClaudeJson(text: string): any {
   const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '')
-  return JSON.parse(stripped)
+  try {
+    return JSON.parse(stripped)
+  } catch {
+    return JSON.parse(jsonrepair(stripped))
+  }
 }
 
 export async function callClaude(client: Anthropic, opts: CallClaudeOptions): Promise<string> {

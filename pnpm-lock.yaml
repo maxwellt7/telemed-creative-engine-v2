@@ -90,6 +90,9 @@ importers:
       ioredis:
         specifier: ^5.3.0
         version: 5.10.1
+      jsonrepair:
+        specifier: ^3.14.0
+        version: 3.14.0
       postgres:
         specifier: ^3.4.0
         version: 3.4.9
@@ -1851,6 +1854,10 @@ packages:
 
   json-diff@0.9.0:
     resolution: {integrity: sha512-cVnggDrVkAAA3OvFfHpFEhOnmcsUpleEKq4d4O8sQWWSH40MBrWstKigVB1kGrgLWzuom+7rRdaCsnBD6VyObQ==}
+    hasBin: true
+
+  jsonrepair@3.14.0:
+    resolution: {integrity: sha512-tWPGKMZf/8UPim+fcW2EfcQ/d/7aKUrP6IECz9G3Tu6Q5dX0orSleqJ9z6sSw7qrQkjF8/Edo4DvsWBZ8H+HNg==}
     hasBin: true
 
   jwa@2.0.1:
@@ -3904,6 +3911,8 @@ snapshots:
       cli-color: 2.0.4
       difflib: 0.2.4
       dreamopt: 0.8.0
+
+  jsonrepair@3.14.0: {}
 
   jwa@2.0.1:
     dependencies:
