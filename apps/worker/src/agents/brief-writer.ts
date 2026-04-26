@@ -55,9 +55,26 @@ Respond ONLY with valid JSON — array of exactly 3:
     "agitationMoment": "string — the specific daily emotional cost this persona faces that will be agitated mid-page",
     "emotionalCore": "string — primary emotion driven (curiosity/fear/hope/shame/relief)",
     "targetPersona": "string — which of the 15 telemedicine personas this hits hardest",
-    "uniqueMechanism": "string — the differentiating scientific or clinical claim"
+    "uniqueMechanism": "string — the differentiating scientific or clinical claim",
+    "openerType": "internalDialogue|whyProblem|whyContrast|howOthersSucceed|caseStudy|secret|safety|realReason|whenLastTime",
+    "fatalFlaw": {
+      "hiddenLock": "string — true mechanism of the problem (what's actually causing it that other solutions miss)",
+      "masterKey": "string — true mechanism of the solution (what this product actually does differently)",
+      "fatalFlawStatement": "string — one sentence: why every other approach fails because it doesn't address the Hidden Lock"
+    }
   }
-]`
+]
+
+The OPENER TYPE must match the concept's emotional approach:
+- internalDialogue: deep shame/emotional pain — best for persona #1, #8, #13
+- realReason: shifting problem diagnosis, Fatal Flaw reveal — use when hiddenLock is counterintuitive
+- whyContrast: clear success/struggle divide visible in the market
+- caseStudy: when protagonist story has strong concrete numbers
+- whenLastTime: chronic, persistent suffering with no relief
+- secret: counterintuitive mechanism the avatar hasn't heard
+- safety: introducing a hidden danger they haven't considered
+- whyProblem: problem is widespread and well-understood
+- howOthersSucceed: building outcome + identity beliefs`
 
 export async function runReverseBrief(runId: string) {
   await log(runId, 'REVERSE_BRIEF', 'Writing reverse brief from analysis')
@@ -103,12 +120,26 @@ export async function runCopyConcepts(runId: string) {
   const [profile] = await db.select().from(offerProfiles).where(eq(offerProfiles.runId, runId))
   const [brief] = await db.select().from(reverseBriefs).where(eq(reverseBriefs.runId, runId))
 
+  const manifoldDeep = profile?.manifoldDeepJson as any
+  const hookExamples = (manifoldDeep?.hooks ?? []).slice(0, 3).map((h: any) => h.hook).join('\n')
+  const beliefCategories = (profile?.manifoldJson as any)?.beliefCategories ?? {}
+
+  const manifoldSection = hookExamples ? `
+## MANIFOLD HOOKS (use as inspiration — don't copy verbatim):
+${hookExamples}
+
+## BELIEF CATEGORIES TO ADDRESS:
+Identity: ${(beliefCategories.identity ?? []).join('; ')}
+Problem: ${(beliefCategories.problem ?? []).join('; ')}
+Solution: ${(beliefCategories.solution ?? []).join('; ')}
+` : ''
+
   const concepts = await callClaude(anthropic, {
     model: 'claude-sonnet-4-6',
     system: COPY_CONCEPTS_SYSTEM,
     messages: [{
       role: 'user',
-      content: `Generate 3 concepts for this telemedicine product.\n\nOffer Profile:\n${JSON.stringify(profile?.offerAnalysisJson, null, 2)}\n\nReverse Brief:\n${JSON.stringify(brief?.briefJson, null, 2)}`,
+      content: `Generate 3 concepts for this telemedicine product.\n\nOffer Profile:\n${JSON.stringify(profile?.offerAnalysisJson, null, 2)}\n\nReverse Brief:\n${JSON.stringify(brief?.briefJson, null, 2)}${manifoldSection}`,
     }],
     maxTokens: 4096,
   })

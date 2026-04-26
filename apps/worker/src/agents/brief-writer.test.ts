@@ -31,6 +31,28 @@ vi.mock('../db/index.js', () => ({
               analysisJson: { hookStructure: 'PAS' }, trafficScore: 0.9,
             }]),
           }),
+          // direct resolution for offerProfiles / reverseBriefs queries
+          then: vi.fn().mockImplementation((resolve: (v: any[]) => any) => resolve([
+            {
+              id: 'prof-1',
+              offerAnalysisJson: { productName: 'TestMed' },
+              manifoldDeepJson: {
+                hooks: [
+                  { hook: 'Your body is fighting you — not helping you' },
+                  { hook: 'The real reason diets fail after 40' },
+                  { hook: 'GLP-1 works — but not the way you think' },
+                ],
+              },
+              manifoldJson: {
+                beliefCategories: {
+                  identity: ['I am someone who struggles with weight', 'I have tried everything'],
+                  problem: ['My metabolism is broken', 'Hormones are working against me'],
+                  solution: ['There is a medical reason for this', 'The right protocol can fix it'],
+                },
+              },
+              briefJson: { whyItConverts: 'Fear + relief' },
+            },
+          ])),
         }),
       }),
     }),
