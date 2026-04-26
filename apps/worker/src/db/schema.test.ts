@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { products, pipelineRuns, stageLogs, personas } from './schema.js'
+import { products, pipelineRuns, stageLogs, personas, offerProfiles } from './schema.js'
 
 describe('database schema', () => {
   it('products table has vertical default telemedicine', () => {
@@ -13,5 +13,10 @@ describe('database schema', () => {
 
   it('personas table has primaryFear column', () => {
     expect(personas.primaryFear.name).toBe('primary_fear')
+  })
+
+  it('offerProfiles table has manifoldDeepJson column', () => {
+    const cols = Object.keys(offerProfiles)
+    expect(cols).toContain('manifoldDeepJson')
   })
 })

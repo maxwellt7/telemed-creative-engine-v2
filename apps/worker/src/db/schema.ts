@@ -41,6 +41,7 @@ export const offerProfiles = pgTable('offer_profiles', {
   avatarJson: jsonb('avatar_json').notNull(),
   beliefsJson: jsonb('beliefs_json').notNull(),
   manifoldJson: jsonb('manifold_json').notNull(),
+  manifoldDeepJson: jsonb('manifold_deep_json'),
   launchDocJson: jsonb('launch_doc_json').notNull(),
 })
 
