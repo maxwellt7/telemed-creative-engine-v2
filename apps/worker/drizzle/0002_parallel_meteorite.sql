@@ -1,0 +1,1 @@
+ALTER TABLE "offer_profiles" ADD COLUMN "manifold_deep_json" jsonb;

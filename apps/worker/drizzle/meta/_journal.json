@@ -15,6 +15,13 @@
       "when": 1777056120796,
       "tag": "0001_charming_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777176406680,
+      "tag": "0002_parallel_meteorite",
+      "breakpoints": true
     }
   ]
 }
